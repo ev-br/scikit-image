@@ -49,6 +49,7 @@ References
 .. [4] https://en.wikipedia.org/wiki/CIE_1931_color_space
 """
 
+import math
 from warnings import warn
 
 import numpy as np
@@ -71,6 +72,8 @@ try:
     from numpy import AxisError
 except ImportError:
     from numpy.exceptions import AxisError
+
+xp = np
 
 
 def convert_colorspace(arr, fromspace, tospace, *, channel_axis=-1):
@@ -170,7 +173,7 @@ def _prepare_colorarray(arr, force_copy=False, *, channel_axis=-1):
         raise ValueError(msg)
 
     float_dtype = _supported_float_type(arr.dtype)
-    if float_dtype == np.float32:
+    if float_dtype == xp.float32:
         _func = dtype.img_as_float32
     else:
         _func = dtype.img_as_float64
@@ -235,25 +238,25 @@ def rgba2rgb(rgba, background=(1, 1, 1), *, channel_axis=-1):
         raise ValueError(msg)
 
     float_dtype = _supported_float_type(arr.dtype)
-    if float_dtype == np.float32:
+    if float_dtype == xp.float32:
         arr = dtype.img_as_float32(arr)
     else:
         arr = dtype.img_as_float64(arr)
 
-    background = np.ravel(background).astype(arr.dtype)
+    background = xp.astype(xp.reshape(background, (-1,)), arr.dtype)
     if len(background) != 3:
         raise ValueError(
             'background must be an array-like containing 3 RGB '
             f'values. Got {len(background)} items'
         )
-    if np.any(background < 0) or np.any(background > 1):
+    if xp.any(background < 0) or xp.any(background > 1):
         raise ValueError('background RGB values must be floats between ' '0 and 1.')
     # reshape background for broadcasting along non-channel axes
     background = reshape_nd(background, arr.ndim, channel_axis)
 
     alpha = arr[slice_at_axis(slice(3, 4), axis=channel_axis)]
     channels = arr[slice_at_axis(slice(3), axis=channel_axis)]
-    out = np.clip((1 - alpha) * background + alpha * channels, a_min=0, a_max=1)
+    out = xp.clip((1 - alpha) * background + alpha * channels, a_min=0, a_max=1)
     return out
 
 
@@ -301,10 +304,10 @@ def rgb2hsv(rgb, *, channel_axis=-1):
     """
     input_is_one_pixel = rgb.ndim == 1
     if input_is_one_pixel:
-        rgb = rgb[np.newaxis, ...]
+        rgb = rgb[xp.newaxis, ...]
 
     arr = _prepare_colorarray(rgb, channel_axis=-1)
-    out = np.empty_like(arr)
+    out = xp.empty_like(arr)
 
     # -- V channel
     out_v = arr.max(-1)
@@ -339,10 +342,10 @@ def rgb2hsv(rgb, *, channel_axis=-1):
     out[..., 2] = out_v
 
     # # remove NaN
-    out[np.isnan(out)] = 0
+    out[xp.isnan(out)] = 0
 
     if input_is_one_pixel:
-        out = np.squeeze(out, axis=0)
+        out = xp.squeeze(out, axis=0)
 
     return out
 
@@ -391,24 +394,24 @@ def hsv2rgb(hsv, *, channel_axis=-1):
     """
     arr = _prepare_colorarray(hsv, channel_axis=-1)
 
-    hi = np.floor(arr[..., 0] * 6)
+    hi = xp.floor(arr[..., 0] * 6)
     f = arr[..., 0] * 6 - hi
     p = arr[..., 2] * (1 - arr[..., 1])
     q = arr[..., 2] * (1 - f * arr[..., 1])
     t = arr[..., 2] * (1 - (1 - f) * arr[..., 1])
     v = arr[..., 2]
 
-    hi = np.stack([hi, hi, hi], axis=-1).astype(np.uint8) % 6
+    hi = xp.stack([hi, hi, hi], axis=-1).astype(xp.uint8) % 6
     out = np.choose(
         hi,
-        np.stack(
+        xp.stack(
             [
-                np.stack((v, t, p), axis=-1),
-                np.stack((q, v, p), axis=-1),
-                np.stack((p, v, t), axis=-1),
-                np.stack((p, q, v), axis=-1),
-                np.stack((t, p, v), axis=-1),
-                np.stack((v, p, q), axis=-1),
+                xp.stack((v, t, p), axis=-1),
+                xp.stack((q, v, p), axis=-1),
+                xp.stack((p, v, t), axis=-1),
+                xp.stack((p, q, v), axis=-1),
+                xp.stack((t, p, v), axis=-1),
+                xp.stack((v, p, q), axis=-1),
             ]
         ),
     )
@@ -419,15 +422,15 @@ def hsv2rgb(hsv, *, channel_axis=-1):
 # ---------------------------------------------------------------
 # Primaries for the coordinate systems
 # ---------------------------------------------------------------
-cie_primaries = np.array([700, 546.1, 435.8])
-sb_primaries = np.array([1.0 / 155, 1.0 / 190, 1.0 / 225]) * 1e5
+cie_primaries = xp.asarray([700, 546.1, 435.8])
+sb_primaries = xp.asarray([1.0 / 155, 1.0 / 190, 1.0 / 225]) * 1e5
 
 # ---------------------------------------------------------------
 # Matrices that define conversion between different color spaces
 # ---------------------------------------------------------------
 
 # From sRGB specification
-xyz_from_rgb = np.array(
+xyz_from_rgb = xp.asarray(
     [
         [0.412453, 0.357580, 0.180423],
         [0.212671, 0.715160, 0.072169],
@@ -440,7 +443,7 @@ rgb_from_xyz = linalg.inv(xyz_from_rgb)
 # From https://en.wikipedia.org/wiki/CIE_1931_color_space
 # Note: Travis's code did not have the divide by 0.17697
 xyz_from_rgbcie = (
-    np.array([[0.49, 0.31, 0.20], [0.17697, 0.81240, 0.01063], [0.00, 0.01, 0.99]])
+    xp.asarray([[0.49, 0.31, 0.20], [0.17697, 0.81240, 0.01063], [0.00, 0.01, 0.99]])
     / 0.17697
 )
 
@@ -451,9 +454,9 @@ rgbcie_from_rgb = rgbcie_from_xyz @ xyz_from_rgb
 rgb_from_rgbcie = rgb_from_xyz @ xyz_from_rgbcie
 
 
-gray_from_rgb = np.array([[0.2125, 0.7154, 0.0721], [0, 0, 0], [0, 0, 0]])
+gray_from_rgb = xp.asarray([[0.2125, 0.7154, 0.0721], [0, 0, 0], [0, 0, 0]])
 
-yuv_from_rgb = np.array(
+yuv_from_rgb = xp.asarray(
     [
         [0.299, 0.587, 0.114],
         [-0.14714119, -0.28886916, 0.43601035],
@@ -463,7 +466,7 @@ yuv_from_rgb = np.array(
 
 rgb_from_yuv = linalg.inv(yuv_from_rgb)
 
-yiq_from_rgb = np.array(
+yiq_from_rgb = xp.asarray(
     [
         [0.299, 0.587, 0.114],
         [0.59590059, -0.27455667, -0.32134392],
@@ -473,19 +476,19 @@ yiq_from_rgb = np.array(
 
 rgb_from_yiq = linalg.inv(yiq_from_rgb)
 
-ypbpr_from_rgb = np.array(
+ypbpr_from_rgb = xp.asarray(
     [[0.299, 0.587, 0.114], [-0.168736, -0.331264, 0.5], [0.5, -0.418688, -0.081312]]
 )
 
 rgb_from_ypbpr = linalg.inv(ypbpr_from_rgb)
 
-ycbcr_from_rgb = np.array(
+ycbcr_from_rgb = xp.asarray(
     [[65.481, 128.553, 24.966], [-37.797, -74.203, 112.0], [112.0, -93.786, -18.214]]
 )
 
 rgb_from_ycbcr = linalg.inv(ycbcr_from_rgb)
 
-ydbdr_from_rgb = np.array(
+ydbdr_from_rgb = xp.asarray(
     [[0.299, 0.587, 0.114], [-0.45, -0.883, 1.333], [-1.333, 1.116, 0.217]]
 )
 
@@ -494,7 +497,7 @@ rgb_from_ydbdr = linalg.inv(ydbdr_from_rgb)
 
 # CIE LAB constants for Observer=2A, Illuminant=D65
 # NOTE: this is actually the XYZ values for the illuminant above.
-lab_ref_white = np.array([0.95047, 1.0, 1.08883])
+lab_ref_white = xp.asarray([0.95047, 1.0, 1.08883])
 
 # CIE XYZ tristimulus values of the illuminants, scaled to [0, 1]. For each illuminant I
 # we have:
@@ -621,7 +624,7 @@ def xyz_tristimulus_values(*, illuminant, observer, dtype=float):
     illuminant = illuminant.upper()
     observer = observer.upper()
     try:
-        return np.asarray(_illuminants[illuminant][observer], dtype=dtype)
+        return xp.asarray(_illuminants[illuminant][observer], dtype=dtype)
     except KeyError:
         raise ValueError(
             f'Unknown illuminant/observer combination '
@@ -635,7 +638,7 @@ def xyz_tristimulus_values(*, illuminant, observer, dtype=float):
 # Analytical and quantitative cytology and histology / the International
 # Academy of Cytology [and] American Society of Cytology, vol. 23, no. 4,
 # pp. 291-9, Aug. 2001.
-rgb_from_hed = np.array([[0.65, 0.70, 0.29], [0.07, 0.99, 0.11], [0.27, 0.57, 0.78]])
+rgb_from_hed = xp.asarray([[0.65, 0.70, 0.29], [0.07, 0.99, 0.11], [0.27, 0.57, 0.78]])
 hed_from_rgb = linalg.inv(rgb_from_hed)
 
 # Following matrices are adapted form the Java code written by G.Landini.
@@ -643,34 +646,34 @@ hed_from_rgb = linalg.inv(rgb_from_hed)
 # https://web.archive.org/web/20160624145052/http://www.mecourse.com/landinig/software/cdeconv/cdeconv.html
 
 # Hematoxylin + DAB
-rgb_from_hdx = np.array([[0.650, 0.704, 0.286], [0.268, 0.570, 0.776], [0.0, 0.0, 0.0]])
-rgb_from_hdx[2, :] = np.cross(rgb_from_hdx[0, :], rgb_from_hdx[1, :])
+rgb_from_hdx = xp.asarray([[0.650, 0.704, 0.286], [0.268, 0.570, 0.776], [0.0, 0.0, 0.0]])
+rgb_from_hdx[2, :] = xp.linalg.cross(rgb_from_hdx[0, :], rgb_from_hdx[1, :])
 hdx_from_rgb = linalg.inv(rgb_from_hdx)
 
 # Feulgen + Light Green
-rgb_from_fgx = np.array(
+rgb_from_fgx = xp.asarray(
     [
         [0.46420921, 0.83008335, 0.30827187],
         [0.94705542, 0.25373821, 0.19650764],
         [0.0, 0.0, 0.0],
     ]
 )
-rgb_from_fgx[2, :] = np.cross(rgb_from_fgx[0, :], rgb_from_fgx[1, :])
+rgb_from_fgx[2, :] = xp.linalg.cross(rgb_from_fgx[0, :], rgb_from_fgx[1, :])
 fgx_from_rgb = linalg.inv(rgb_from_fgx)
 
 # Giemsa: Methyl Blue + Eosin
-rgb_from_bex = np.array(
+rgb_from_bex = xp.asarray(
     [
         [0.834750233, 0.513556283, 0.196330403],
         [0.092789, 0.954111, 0.283111],
         [0.0, 0.0, 0.0],
     ]
 )
-rgb_from_bex[2, :] = np.cross(rgb_from_bex[0, :], rgb_from_bex[1, :])
+rgb_from_bex[2, :] = xp.linalg.cross(rgb_from_bex[0, :], rgb_from_bex[1, :])
 bex_from_rgb = linalg.inv(rgb_from_bex)
 
 # FastRed + FastBlue +  DAB
-rgb_from_rbd = np.array(
+rgb_from_rbd = xp.asarray(
     [
         [0.21393921, 0.85112669, 0.47794022],
         [0.74890292, 0.60624161, 0.26731082],
@@ -680,21 +683,21 @@ rgb_from_rbd = np.array(
 rbd_from_rgb = linalg.inv(rgb_from_rbd)
 
 # Methyl Green + DAB
-rgb_from_gdx = np.array(
+rgb_from_gdx = xp.asarray(
     [[0.98003, 0.144316, 0.133146], [0.268, 0.570, 0.776], [0.0, 0.0, 0.0]]
 )
-rgb_from_gdx[2, :] = np.cross(rgb_from_gdx[0, :], rgb_from_gdx[1, :])
+rgb_from_gdx[2, :] = xp.linalg.cross(rgb_from_gdx[0, :], rgb_from_gdx[1, :])
 gdx_from_rgb = linalg.inv(rgb_from_gdx)
 
 # Hematoxylin + AEC
-rgb_from_hax = np.array(
+rgb_from_hax = xp.asarray(
     [[0.650, 0.704, 0.286], [0.2743, 0.6796, 0.6803], [0.0, 0.0, 0.0]]
 )
-rgb_from_hax[2, :] = np.cross(rgb_from_hax[0, :], rgb_from_hax[1, :])
+rgb_from_hax[2, :] = xp.linalg.cross(rgb_from_hax[0, :], rgb_from_hax[1, :])
 hax_from_rgb = linalg.inv(rgb_from_hax)
 
 # Blue matrix Anilline Blue + Red matrix Azocarmine + Orange matrix Orange-G
-rgb_from_bro = np.array(
+rgb_from_bro = xp.asarray(
     [
         [0.853033, 0.508733, 0.112656],
         [0.09289875, 0.8662008, 0.49098468],
@@ -704,28 +707,28 @@ rgb_from_bro = np.array(
 bro_from_rgb = linalg.inv(rgb_from_bro)
 
 # Methyl Blue + Ponceau Fuchsin
-rgb_from_bpx = np.array(
+rgb_from_bpx = xp.asarray(
     [
         [0.7995107, 0.5913521, 0.10528667],
         [0.09997159, 0.73738605, 0.6680326],
         [0.0, 0.0, 0.0],
     ]
 )
-rgb_from_bpx[2, :] = np.cross(rgb_from_bpx[0, :], rgb_from_bpx[1, :])
+rgb_from_bpx[2, :] = xp.linalg.cross(rgb_from_bpx[0, :], rgb_from_bpx[1, :])
 bpx_from_rgb = linalg.inv(rgb_from_bpx)
 
 # Alcian Blue + Hematoxylin
-rgb_from_ahx = np.array(
+rgb_from_ahx = xp.asarray(
     [[0.874622, 0.457711, 0.158256], [0.552556, 0.7544, 0.353744], [0.0, 0.0, 0.0]]
 )
-rgb_from_ahx[2, :] = np.cross(rgb_from_ahx[0, :], rgb_from_ahx[1, :])
+rgb_from_ahx[2, :] = xp.linalg.cross(rgb_from_ahx[0, :], rgb_from_ahx[1, :])
 ahx_from_rgb = linalg.inv(rgb_from_ahx)
 
 # Hematoxylin + PAS
-rgb_from_hpx = np.array(
+rgb_from_hpx = xp.asarray(
     [[0.644211, 0.716556, 0.266844], [0.175411, 0.972178, 0.154589], [0.0, 0.0, 0.0]]
 )
-rgb_from_hpx[2, :] = np.cross(rgb_from_hpx[0, :], rgb_from_hpx[1, :])
+rgb_from_hpx[2, :] = xp.linalg.cross(rgb_from_hpx[0, :], rgb_from_hpx[1, :])
 hpx_from_rgb = linalg.inv(rgb_from_hpx)
 
 # -------------------------------------------------------------
@@ -751,7 +754,7 @@ def _convert(matrix, arr):
     """
     arr = _prepare_colorarray(arr)
 
-    return arr @ matrix.T.astype(arr.dtype)
+    return arr @ xp.astype(matrix.T, arr.dtype)
 
 
 @channel_as_last_axis()
@@ -801,9 +804,9 @@ def xyz2rgb(xyz, *, channel_axis=-1):
     # except we don't multiply/divide by 100 in the conversion
     arr = _convert(rgb_from_xyz, xyz)
     mask = arr > 0.0031308
-    arr[mask] = 1.055 * np.power(arr[mask], 1 / 2.4) - 0.055
+    arr[mask] = 1.055 * xp.pow(arr[mask], 1 / 2.4) - 0.055
     arr[~mask] *= 12.92
-    np.clip(arr, 0, 1, out=arr)
+    xp.clip(arr, 0, 1, out=arr)
     return arr
 
 
@@ -852,9 +855,9 @@ def rgb2xyz(rgb, *, channel_axis=-1):
     # except we don't multiply/divide by 100 in the conversion
     arr = _prepare_colorarray(rgb, channel_axis=-1).copy()
     mask = arr > 0.04045
-    arr[mask] = np.power((arr[mask] + 0.055) / 1.055, 2.4)
+    arr[mask] = xp.pow((arr[mask] + 0.055) / 1.055, 2.4)
     arr[~mask] /= 12.92
-    return arr @ xyz_from_rgb.T.astype(arr.dtype)
+    return arr @ xp.astype(xyz_from_rgb.T, arr.dtype)
 
 
 @channel_as_last_axis()
@@ -980,7 +983,7 @@ def rgb2gray(rgb, *, channel_axis=-1):
     >>> img_gray = rgb2gray(img)
     """
     rgb = _prepare_colorarray(rgb)
-    coeffs = np.array([0.2125, 0.7154, 0.0721], dtype=rgb.dtype)
+    coeffs = xp.asarray([0.2125, 0.7154, 0.0721], dtype=rgb.dtype)
     return rgb @ coeffs
 
 
@@ -1008,20 +1011,20 @@ def gray2rgba(image, alpha=None, *, channel_axis=-1):
         RGBA image. A new dimension of length 4 is added to input
         image shape.
     """
-    arr = np.asarray(image)
+    arr = xp.asarray(image)
     if alpha is None:
         _, alpha = dtype_limits(arr, clip_negative=False)
     with np.errstate(over="ignore", under="ignore"):
-        alpha_arr = np.asarray(alpha).astype(arr.dtype)
-    if not np.array_equal(alpha_arr, alpha):
+        alpha_arr = xp.astype(xp.asarray(alpha), arr.dtype)
+    if not xp.all(alpha_arr == alpha):   # XXX np.array_equal
         warn(
             f'alpha cannot be safely cast to image dtype {arr.dtype.name}', stacklevel=2
         )
     try:
-        alpha_arr = np.broadcast_to(alpha_arr, arr.shape)
+        alpha_arr = xp.broadcast_to(alpha_arr, arr.shape)
     except ValueError as e:
         raise ValueError("alpha.shape must match image.shape") from e
-    rgba = np.stack((arr,) * 3 + (alpha_arr,), axis=channel_axis)
+    rgba = xp.stack((arr,) * 3 + (alpha_arr,), axis=channel_axis)
     return rgba
 
 
@@ -1046,7 +1049,7 @@ def gray2rgb(image, *, channel_axis=-1):
     If the input is a 1-dimensional image of shape ``(M,)``, the output
     will be of shape ``(M, C=3)``.
     """
-    return np.stack(3 * (image,), axis=channel_axis)
+    return xp.stack(3 * (image,), axis=channel_axis)
 
 
 @channel_as_last_axis()
@@ -1113,7 +1116,7 @@ def xyz2lab(xyz, illuminant="D65", observer="2", *, channel_axis=-1):
 
     # Nonlinear distortion and linear transformation
     mask = arr > 0.008856
-    arr[mask] = np.cbrt(arr[mask])
+    arr[mask] = (arr[mask])**(1 / 3)
     arr[~mask] = 7.787 * arr[~mask] + 16.0 / 116.0
 
     x, y, z = arr[..., 0], arr[..., 1], arr[..., 2]
@@ -1123,7 +1126,7 @@ def xyz2lab(xyz, illuminant="D65", observer="2", *, channel_axis=-1):
     a = 500.0 * (x - y)
     b = 200.0 * (y - z)
 
-    return np.concatenate([x[..., np.newaxis] for x in [L, a, b]], axis=-1)
+    return xp.concat([x[..., xp.newaxis] for x in [L, a, b]], axis=-1)
 
 
 @channel_as_last_axis()
@@ -1219,10 +1222,10 @@ def _lab2xyz(lab, illuminant, observer):
         else:
             z = 0
 
-    out = np.stack([x, y, z], axis=-1)
+    out = xp.stack([x, y, z], axis=-1)
 
     mask = out > 0.2068966
-    out[mask] = np.power(out[mask], 3.0)
+    out[mask] = xp.pow(out[mask], 3.0)
     out[~mask] = (out[~mask] - 16.0 / 116.0) / 7.787
 
     # rescale to the reference white (illuminant)
@@ -1394,14 +1397,14 @@ def xyz2luv(xyz, illuminant="D65", observer="2", *, channel_axis=-1):
     """
     input_is_one_pixel = xyz.ndim == 1
     if input_is_one_pixel:
-        xyz = xyz[np.newaxis, ...]
+        xyz = xyz[xp.newaxis, ...]
 
     arr = _prepare_colorarray(xyz, channel_axis=-1)
 
     # extract channels
     x, y, z = arr[..., 0], arr[..., 1], arr[..., 2]
 
-    eps = np.finfo(arr.dtype).eps
+    eps = xp.finfo(arr.dtype).eps
 
     # compute y_r and L
     xyz_ref_white = xyz_tristimulus_values(
@@ -1409,10 +1412,10 @@ def xyz2luv(xyz, illuminant="D65", observer="2", *, channel_axis=-1):
     )
     L = y / xyz_ref_white[1]
     mask = L > 0.008856
-    L[mask] = 116.0 * np.cbrt(L[mask]) - 16.0
+    L[mask] = 116.0 * (L[mask])**(1 / 3) - 16.0
     L[~mask] = 903.3 * L[~mask]
 
-    uv_weights = np.array([1, 15, 3], dtype=arr.dtype)
+    uv_weights = xp.asarray([1, 15, 3], dtype=arr.dtype)
     u0 = 4 * xyz_ref_white[0] / (uv_weights @ xyz_ref_white)
     v0 = 9 * xyz_ref_white[1] / (uv_weights @ xyz_ref_white)
 
@@ -1427,10 +1430,10 @@ def xyz2luv(xyz, illuminant="D65", observer="2", *, channel_axis=-1):
     u = 13.0 * L * (fu(x, y, z) - u0)
     v = 13.0 * L * (fv(x, y, z) - v0)
 
-    out = np.stack([L, u, v], axis=-1)
+    out = xp.stack([L, u, v], axis=-1)
 
     if input_is_one_pixel:
-        out = np.squeeze(out, axis=0)
+        out = xp.squeeze(out, axis=0)
 
     return out
 
@@ -1483,12 +1486,12 @@ def luv2xyz(luv, illuminant="D65", observer="2", *, channel_axis=-1):
 
     L, u, v = arr[..., 0], arr[..., 1], arr[..., 2]
 
-    eps = np.finfo(arr.dtype).eps
+    eps = xp.finfo(arr.dtype).eps
 
     # compute y
     y = L.copy()
     mask = y > 7.999625
-    y[mask] = np.power((y[mask] + 16.0) / 116.0, 3.0)
+    y[mask] = xp.pow((y[mask] + 16.0) / 116.0, 3.0)
     y[~mask] = y[~mask] / 903.3
     xyz_ref_white = xyz_tristimulus_values(
         illuminant=illuminant, observer=observer, dtype=arr.dtype
@@ -1496,7 +1499,7 @@ def luv2xyz(luv, illuminant="D65", observer="2", *, channel_axis=-1):
     y *= xyz_ref_white[1]
 
     # reference white x,z
-    uv_weights = np.array([1, 15, 3], dtype=arr.dtype)
+    uv_weights = xp.asarray([1, 15, 3], dtype=arr.dtype)
     u0 = 4 * xyz_ref_white[0] / (uv_weights @ xyz_ref_white)
     v0 = 9 * xyz_ref_white[1] / (uv_weights @ xyz_ref_white)
 
@@ -1509,7 +1512,7 @@ def luv2xyz(luv, illuminant="D65", observer="2", *, channel_axis=-1):
     z = ((a - 4) * c - 15 * a * b * y) / (12 * b)
     x = -(c / b + 3.0 * z)
 
-    return np.concatenate([q[..., np.newaxis] for q in [x, y, z]], axis=-1)
+    return xp.concat([q[..., xp.newaxis] for q in [x, y, z]], axis=-1)
 
 
 @channel_as_last_axis()
@@ -1730,12 +1733,12 @@ def separate_stains(rgb, conv_matrix, *, channel_axis=-1):
     >>> ihc_hdx = separate_stains(ihc, hdx_from_rgb)
     """
     rgb = _prepare_colorarray(rgb, force_copy=True, channel_axis=-1)
-    np.maximum(rgb, 1e-6, out=rgb)  # avoiding log artifacts
-    log_adjust = np.log(1e-6)  # used to compensate the sum above
+    xp.maximum(rgb, 1e-6, out=rgb)  # avoiding log artifacts
+    log_adjust = xp.log(1e-6)  # used to compensate the sum above
 
-    stains = (np.log(rgb) / log_adjust) @ conv_matrix
+    stains = (xp.log(rgb) / log_adjust) @ conv_matrix
 
-    np.maximum(stains, 0, out=stains)
+    xp.maximum(stains, 0, out=stains)
 
     return stains
 
@@ -1805,11 +1808,11 @@ def combine_stains(stains, conv_matrix, *, channel_axis=-1):
     stains = _prepare_colorarray(stains, channel_axis=-1)
 
     # log_adjust here is used to compensate the sum within separate_stains().
-    log_adjust = -np.log(1e-6)
+    log_adjust = -xp.log(1e-6)
     log_rgb = -(stains * log_adjust) @ conv_matrix
-    rgb = np.exp(log_rgb)
+    rgb = xp.exp(log_rgb)
 
-    return np.clip(rgb, a_min=0, a_max=1)
+    return xp.clip(rgb, a_min=0, a_max=1)
 
 
 @channel_as_last_axis()
@@ -1878,8 +1881,8 @@ def _cart2polar_2pi(x, y):
 
     NON-STANDARD RANGE! Maps to ``(0, 2*pi)`` rather than usual ``(-pi, +pi)``
     """
-    r, t = np.hypot(x, y), np.arctan2(y, x)
-    t += np.where(t < 0.0, 2 * np.pi, 0)
+    r, t = xp.hypot(x, y), xp.atan2(y, x)
+    t += xp.where(t < 0.0, 2 * math.pi, 0)
     return r, t
 
 
@@ -1942,7 +1945,7 @@ def lch2lab(lch, *, channel_axis=-1):
     lch = _prepare_lab_array(lch)
 
     c, h = lch[..., 1], lch[..., 2]
-    lch[..., 1], lch[..., 2] = c * np.cos(h), c * np.sin(h)
+    lch[..., 1], lch[..., 2] = c * xp.cos(h), c * xp.sin(h)
     return lch
 
 
@@ -1952,12 +1955,12 @@ def _prepare_lab_array(arr, force_copy=True):
     Input array must be in floating point and have at least 3 elements in the
     last dimension. Returns a new array by default.
     """
-    arr = np.asarray(arr)
+    arr = xp.asarray(arr)
     shape = arr.shape
     if shape[-1] < 3:
         raise ValueError('Input image has less than 3 channels.')
     float_dtype = _supported_float_type(arr.dtype)
-    if float_dtype == np.float32:
+    if float_dtype == xp.float32:
         _func = dtype.img_as_float32
     else:
         _func = dtype.img_as_float64

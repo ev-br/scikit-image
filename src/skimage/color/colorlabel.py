@@ -24,6 +24,7 @@ DEFAULT_COLORS = (
     'yellowgreen',
 )
 
+xp = np
 
 color_dict = {k: v for k, v in rgb_colors.__dict__.items() if isinstance(v, tuple)}
 
@@ -42,7 +43,7 @@ def _rgb_vector(color):
     if isinstance(color, str):
         color = color_dict[color]
     # Slice to handle RGBA colors.
-    return np.array(color[:3])
+    return xp.asarray(color[:3])
 
 
 def _match_label_with_color(label, colors, bg_label, bg_color):
@@ -57,9 +58,9 @@ def _match_label_with_color(label, colors, bg_label, bg_color):
     bg_color = _rgb_vector(bg_color)
 
     # map labels to their ranks among all labels from small to large
-    unique_labels, mapped_labels = np.unique(label, return_inverse=True)
+    unique_labels, mapped_labels = xp.unique_inverse(label)
     # unique_inverse is no longer flat in NumPy 2.0
-    mapped_labels = mapped_labels.reshape(-1)
+    mapped_labels = xp.reshape(mapped_labels, (-1))
 
     # get rank of bg_label
     bg_label_rank_list = mapped_labels[label.flat == bg_label]
@@ -144,7 +145,7 @@ def label2rgb(
         value in `label` with the image, at a certain alpha value.
     """
     if image is not None:
-        image = np.moveaxis(image, source=channel_axis, destination=-1)
+        image = xp.moveaxis(image, source=channel_axis, destination=-1)
     if kind == 'overlay':
         rgb = _label2rgb_overlay(
             label, image, colors, alpha, bg_label, bg_color, image_alpha, saturation
@@ -153,7 +154,7 @@ def label2rgb(
         rgb = _label2rgb_avg(label, image, bg_label, bg_color)
     else:
         raise ValueError("`kind` must be either 'overlay' or 'avg'.")
-    return np.moveaxis(rgb, source=-1, destination=channel_axis)
+    return xp.moveaxis(rgb, source=-1, destination=channel_axis)
 
 
 def _label2rgb_overlay(
@@ -208,7 +209,7 @@ def _label2rgb_overlay(
     colors = [_rgb_vector(c) for c in colors]
 
     if image is None:
-        image = np.zeros(label.shape + (3,), dtype=np.float64)
+        image = xp.zeros(label.shape + (3,), dtype=xp.float64)
         # Opacity doesn't make sense if no image exists.
         alpha = 1
     else:
@@ -222,7 +223,7 @@ def _label2rgb_overlay(
             warn("Negative intensities in `image` are not supported")
 
         float_dtype = _supported_float_type(image.dtype)
-        image = img_as_float(image).astype(float_dtype, copy=False)
+        image = xp.astype(img_as_float(image), float_dtype, copy=False)
         if image.ndim > label.ndim:
             hsv = rgb2hsv(image)
             hsv[..., 1] *= saturation
@@ -240,8 +241,8 @@ def _label2rgb_overlay(
 
     new_type = np.min_scalar_type(int(label.max()))
     if new_type == bool:
-        new_type = np.uint8
-    label = label.astype(new_type)
+        new_type = xp.uint8
+    label = xp.astype(label, new_type)
 
     mapped_labels_flat, color_cycle = _match_label_with_color(
         label, colors, bg_label, bg_color
@@ -250,9 +251,9 @@ def _label2rgb_overlay(
     if len(mapped_labels_flat) == 0:
         return image
 
-    dense_labels = range(np.max(mapped_labels_flat) + 1)
+    dense_labels = range(xp.max(mapped_labels_flat) + 1)
 
-    label_to_color = np.stack([c for i, c in zip(dense_labels, color_cycle)])
+    label_to_color = xp.stack([c for i, c in zip(dense_labels, color_cycle)])
 
     mapped_labels = label
     mapped_labels.flat = mapped_labels_flat
@@ -285,8 +286,8 @@ def _label2rgb_avg(label_field, image, bg_label=0, bg_color=(0, 0, 0)):
     out : ndarray, same shape and type as `image`
         The output visualization.
     """
-    out = np.zeros(label_field.shape + (3,), dtype=image.dtype)
-    labels = np.unique(label_field)
+    out = xp.zeros(label_field.shape + (3,), dtype=image.dtype)
+    labels = xp.unique_values(label_field)
     bg = labels == bg_label
     if bg.any():
         labels = labels[labels != bg_label]

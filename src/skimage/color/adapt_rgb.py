@@ -5,6 +5,8 @@ import numpy as np
 from .. import color
 from ..util.dtype import _convert
 
+xp = np
+
 
 __all__ = ['adapt_rgb', 'hsv_value', 'each_channel']
 
@@ -77,5 +79,5 @@ def each_channel(image_filter, image, *args, **kwargs):
     image : array
         Input image.
     """
-    c_new = [image_filter(c, *args, **kwargs) for c in np.moveaxis(image, -1, 0)]
-    return np.stack(c_new, axis=-1)
+    c_new = [image_filter(c, *args, **kwargs) for c in xp.moveaxis(image, -1, 0)]
+    return xp.stack(c_new, axis=-1)

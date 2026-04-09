@@ -17,22 +17,35 @@ References
 .. [1] https://en.wikipedia.org/wiki/Color_difference
 
 """
+import math
 
 import numpy as np
 
 from _skimage2._shared.utils import _supported_float_type
 from .colorconv import lab2lch, _cart2polar_2pi
 
+xp = np
+
+
+def _deg2rad(x):
+    """np.deg2rad replacement."""
+    return x * math.pi / 180;
+
+
+def _rad2deg(x):
+    """np.rad2deg replacement."""
+    return 180 * x / math.pi
+
 
 def _float_inputs(lab1, lab2, allow_float32=True):
-    lab1 = np.asarray(lab1)
-    lab2 = np.asarray(lab2)
+    lab1 = xp.asarray(lab1)
+    lab2 = xp.asarray(lab2)
     if allow_float32:
         float_dtype = _supported_float_type((lab1.dtype, lab2.dtype))
     else:
-        float_dtype = np.float64
-    lab1 = lab1.astype(float_dtype, copy=False)
-    lab2 = lab2.astype(float_dtype, copy=False)
+        float_dtype = xp.float64
+    lab1 = xp.astype(lab1, float_dtype, copy=False)
+    lab2 = xp.astype(lab2, float_dtype, copy=False)
     return lab1, lab2
 
 
@@ -64,9 +77,9 @@ def deltaE_cie76(lab1, lab2, channel_axis=-1):
            Color Res. Appl. 2, 7-11 (1977).
     """
     lab1, lab2 = _float_inputs(lab1, lab2, allow_float32=True)
-    L1, a1, b1 = np.moveaxis(lab1, source=channel_axis, destination=0)[:3]
-    L2, a2, b2 = np.moveaxis(lab2, source=channel_axis, destination=0)[:3]
-    return np.sqrt((L2 - L1) ** 2 + (a2 - a1) ** 2 + (b2 - b1) ** 2)
+    L1, a1, b1 = xp.moveaxis(lab1, source=channel_axis, destination=0)[:3]
+    L2, a2, b2 = xp.moveaxis(lab2, source=channel_axis, destination=0)[:3]
+    return xp.sqrt((L2 - L1) ** 2 + (a2 - a1) ** 2 + (b2 - b1) ** 2)
 
 
 def deltaE_ciede94(
@@ -129,8 +142,8 @@ def deltaE_ciede94(
     .. [2] http://www.brucelindbloom.com/index.html?Eqn_DeltaE_CIE94.html
     """
     lab1, lab2 = _float_inputs(lab1, lab2, allow_float32=True)
-    lab1 = np.moveaxis(lab1, source=channel_axis, destination=0)
-    lab2 = np.moveaxis(lab2, source=channel_axis, destination=0)
+    lab1 = xp.moveaxis(lab1, source=channel_axis, destination=0)
+    lab2 = xp.moveaxis(lab2, source=channel_axis, destination=0)
 
     L1, C1 = lab2lch(lab1, channel_axis=0)[:2]
     L2, C2 = lab2lch(lab2, channel_axis=0)[:2]
@@ -146,7 +159,7 @@ def deltaE_ciede94(
     dE2 = (dL / (kL * SL)) ** 2
     dE2 += (dC / (kC * SC)) ** 2
     dE2 += dH2 / (kH * SH) ** 2
-    return np.sqrt(np.maximum(dE2, 0))
+    return xp.sqrt(xp.maximum(dE2, 0))
 
 
 def deltaE_ciede2000(lab1, lab2, kL=1, kC=1, kH=1, *, channel_axis=-1):
@@ -205,16 +218,16 @@ def deltaE_ciede2000(lab1, lab2, kL=1, kC=1, kH=1, *, channel_axis=-1):
         if lab2.ndim == 1:
             lab2 = lab2[None, :]
         channel_axis += 1
-    L1, a1, b1 = np.moveaxis(lab1, source=channel_axis, destination=0)[:3]
-    L2, a2, b2 = np.moveaxis(lab2, source=channel_axis, destination=0)[:3]
+    L1, a1, b1 = xp.moveaxis(lab1, source=channel_axis, destination=0)[:3]
+    L2, a2, b2 = xp.moveaxis(lab2, source=channel_axis, destination=0)[:3]
 
     # distort `a` based on average chroma
     # then convert to lch coordinates from distorted `a`
     # all subsequence calculations are in the new coordinates
     # (often denoted "prime" in the literature)
-    Cbar = 0.5 * (np.hypot(a1, b1) + np.hypot(a2, b2))
+    Cbar = 0.5 * (xp.hypot(a1, b1) + xp.hypot(a2, b2))
     c7 = Cbar**7
-    G = 0.5 * (1 - np.sqrt(c7 / (c7 + 25**7)))
+    G = 0.5 * (1 - xp.sqrt(c7 / (c7 + 25**7)))
     scale = 1 + G
     C1, h1 = _cart2polar_2pi(a1 * scale, b1)
     C2, h2 = _cart2polar_2pi(a2 * scale, b2)
@@ -229,7 +242,7 @@ def deltaE_ciede2000(lab1, lab2, kL=1, kC=1, kH=1, *, channel_axis=-1):
     # lightness term
     Lbar = 0.5 * (L1 + L2)
     tmp = (Lbar - 50) ** 2
-    SL = 1 + 0.015 * tmp / np.sqrt(20 + tmp)
+    SL = 1 + 0.015 * tmp / xp.sqrt(20 + tmp)
     L_term = (L2 - L1) / (kL * SL)
 
     # chroma term
@@ -243,24 +256,24 @@ def deltaE_ciede2000(lab1, lab2, kL=1, kC=1, kH=1, *, channel_axis=-1):
     CC = C1 * C2
 
     dH = h_diff.copy()
-    dH[h_diff > np.pi] -= 2 * np.pi
-    dH[h_diff < -np.pi] += 2 * np.pi
+    dH[h_diff > math.pi] -= 2 * math.pi
+    dH[h_diff < -math.pi] += 2 * math.pi
     dH[CC == 0.0] = 0.0  # if r == 0, dtheta == 0
-    dH_term = 2 * np.sqrt(CC) * np.sin(dH / 2)
+    dH_term = 2 * xp.sqrt(CC) * xp.sin(dH / 2)
 
     Hbar = h_sum.copy()
-    mask = np.logical_and(CC != 0.0, np.abs(h_diff) > np.pi)
-    Hbar[mask * (h_sum < 2 * np.pi)] += 2 * np.pi
-    Hbar[mask * (h_sum >= 2 * np.pi)] -= 2 * np.pi
+    mask = xp.logical_and(CC != 0.0, xp.abs(h_diff) > math.pi)
+    Hbar[mask * (h_sum < 2 * math.pi)] += 2 * math.pi
+    Hbar[mask * (h_sum >= 2 * math.pi)] -= 2 * math.pi
     Hbar[CC == 0.0] *= 2
     Hbar *= 0.5
 
     T = (
         1
-        - 0.17 * np.cos(Hbar - np.deg2rad(30))
-        + 0.24 * np.cos(2 * Hbar)
-        + 0.32 * np.cos(3 * Hbar + np.deg2rad(6))
-        - 0.20 * np.cos(4 * Hbar - np.deg2rad(63))
+        - 0.17 * xp.cos(Hbar - _deg2rad(30))
+        + 0.24 * xp.cos(2 * Hbar)
+        + 0.32 * xp.cos(3 * Hbar + _deg2rad(6))
+        - 0.20 * xp.cos(4 * Hbar - _deg2rad(63))
     )
     SH = 1 + 0.015 * Cbar * T
 
@@ -268,16 +281,16 @@ def deltaE_ciede2000(lab1, lab2, kL=1, kC=1, kH=1, *, channel_axis=-1):
 
     # hue rotation
     c7 = Cbar**7
-    Rc = 2 * np.sqrt(c7 / (c7 + 25**7))
-    dtheta = np.deg2rad(30) * np.exp(-(((np.rad2deg(Hbar) - 275) / 25) ** 2))
-    R_term = -np.sin(2 * dtheta) * Rc * C_term * H_term
+    Rc = 2 * xp.sqrt(c7 / (c7 + 25**7))
+    dtheta = _deg2rad(30) * xp.exp(-(((_rad2deg(Hbar) - 275) / 25) ** 2))
+    R_term = -xp.sin(2 * dtheta) * Rc * C_term * H_term
 
     # put it all together
     dE2 = L_term**2
     dE2 += C_term**2
     dE2 += H_term**2
     dE2 += R_term
-    ans = np.sqrt(np.maximum(dE2, 0))
+    ans = xp.sqrt(xp.maximum(dE2, 0))
     if unroll:
         ans = ans[0]
     return ans
@@ -329,8 +342,8 @@ def deltaE_cmc(lab1, lab2, kL=1, kC=1, *, channel_axis=-1):
            (1984).
     """
     lab1, lab2 = _float_inputs(lab1, lab2, allow_float32=True)
-    lab1 = np.moveaxis(lab1, source=channel_axis, destination=0)
-    lab2 = np.moveaxis(lab2, source=channel_axis, destination=0)
+    lab1 = xp.moveaxis(lab1, source=channel_axis, destination=0)
+    lab2 = xp.moveaxis(lab2, source=channel_axis, destination=0)
     L1, C1, h1 = lab2lch(lab1, channel_axis=0)[:3]
     L2, C2, h2 = lab2lch(lab2, channel_axis=0)[:3]
 
@@ -338,15 +351,15 @@ def deltaE_cmc(lab1, lab2, kL=1, kC=1, *, channel_axis=-1):
     dL = L1 - L2
     dH2 = get_dH2(lab1, lab2, channel_axis=0)
 
-    T = np.where(
-        np.logical_and(np.rad2deg(h1) >= 164, np.rad2deg(h1) <= 345),
-        0.56 + 0.2 * np.abs(np.cos(h1 + np.deg2rad(168))),
-        0.36 + 0.4 * np.abs(np.cos(h1 + np.deg2rad(35))),
+    T = xp.where(
+        xp.logical_and(_rad2deg(h1) >= 164, _rad2deg(h1) <= 345),
+        0.56 + 0.2 * xp.abs(xp.cos(h1 + _deg2rad(168))),
+        0.36 + 0.4 * xp.abs(xp.cos(h1 + _deg2rad(35))),
     )
     c1_4 = C1**4
-    F = np.sqrt(c1_4 / (c1_4 + 1900))
+    F = xp.sqrt(c1_4 / (c1_4 + 1900))
 
-    SL = np.where(L1 < 16, 0.511, 0.040975 * L1 / (1.0 + 0.01765 * L1))
+    SL = xp.where(L1 < 16, 0.511, 0.040975 * L1 / (1.0 + 0.01765 * L1))
     SC = 0.638 + 0.0638 * C1 / (1.0 + 0.0131 * C1)
     SH = SC * (F * T + 1 - F)
 
@@ -354,7 +367,7 @@ def deltaE_cmc(lab1, lab2, kL=1, kC=1, *, channel_axis=-1):
     dE2 += (dC / (kC * SC)) ** 2
     dE2 += dH2 / (SH**2)
 
-    return np.sqrt(np.maximum(dE2, 0))
+    return xp.sqrt(xp.maximum(dE2, 0))
 
 
 def get_dH2(lab1, lab2, *, channel_axis=-1):
@@ -376,18 +389,18 @@ def get_dH2(lab1, lab2, *, channel_axis=-1):
         2*|ab1|*|ab2| - 2*dot(ab1, ab2)
     """
     # This function needs double precision internally for accuracy
-    input_is_float_32 = _supported_float_type((lab1.dtype, lab2.dtype)) == np.float32
+    input_is_float_32 = _supported_float_type((lab1.dtype, lab2.dtype)) == xp.float32
     lab1, lab2 = _float_inputs(lab1, lab2, allow_float32=False)
 
-    a1, b1 = np.moveaxis(lab1, source=channel_axis, destination=0)[1:3]
-    a2, b2 = np.moveaxis(lab2, source=channel_axis, destination=0)[1:3]
+    a1, b1 = xp.moveaxis(lab1, source=channel_axis, destination=0)[1:3]
+    a2, b2 = xp.moveaxis(lab2, source=channel_axis, destination=0)[1:3]
 
     # magnitude of (a, b) is the chroma
-    C1 = np.hypot(a1, b1)
-    C2 = np.hypot(a2, b2)
+    C1 = xp.hypot(a1, b1)
+    C2 = xp.hypot(a2, b2)
 
     term = (C1 * C2) - (a1 * a2 + b1 * b2)
     out = 2 * term
     if input_is_float_32:
-        out = out.astype(np.float32)
+        out = xp.astype(out, xp.float32)
     return out
