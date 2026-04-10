@@ -7,6 +7,7 @@ from ..util import img_as_float
 from . import rgb_colors
 from .colorconv import gray2rgb, rgb2hsv, hsv2rgb
 
+from _skimage2.util._array_api import array_namespace
 
 __all__ = ['color_dict', 'label2rgb', 'DEFAULT_COLORS']
 
@@ -24,12 +25,11 @@ DEFAULT_COLORS = (
     'yellowgreen',
 )
 
-xp = np
 
 color_dict = {k: v for k, v in rgb_colors.__dict__.items() if isinstance(v, tuple)}
 
 
-def _rgb_vector(color):
+def _rgb_vector(color, xp):
     """Return RGB color as (1, 3) array.
 
     This RGB array gets multiplied by masked regions of an RGB image, which are
@@ -46,7 +46,7 @@ def _rgb_vector(color):
     return xp.asarray(color[:3])
 
 
-def _match_label_with_color(label, colors, bg_label, bg_color):
+def _match_label_with_color(label, colors, bg_label, bg_color, xp):
     """Return `unique_labels` and `color_cycle` for label array and color list.
 
     Colors are cycled for normal labels, but the background color should only
@@ -55,7 +55,7 @@ def _match_label_with_color(label, colors, bg_label, bg_color):
     # Temporarily set background color; it will be removed later.
     if bg_color is None:
         bg_color = (0, 0, 0)
-    bg_color = _rgb_vector(bg_color)
+    bg_color = _rgb_vector(bg_color, xp)
 
     # map labels to their ranks among all labels from small to large
     unique_labels, mapped_labels = xp.unique_inverse(label)
@@ -150,10 +150,10 @@ def label2rgb(
         image = xp.moveaxis(image, source=channel_axis, destination=-1)
     if kind == 'overlay':
         rgb = _label2rgb_overlay(
-            label, image, colors, alpha, bg_label, bg_color, image_alpha, saturation, xp
+            label, image, colors, alpha, bg_label, bg_color, image_alpha, saturation
         )
     elif kind == 'avg':
-        rgb = _label2rgb_avg(label, image, bg_label, bg_color, xp)
+        rgb = _label2rgb_avg(label, image, bg_label, bg_color)
     else:
         raise ValueError("`kind` must be either 'overlay' or 'avg'.")
     return xp.moveaxis(rgb, source=-1, destination=channel_axis)
@@ -168,7 +168,6 @@ def _label2rgb_overlay(
     bg_color=None,
     image_alpha=1,
     saturation=0,
-    xp,
 ):
     """Return an RGB image where color-coded labels are painted over the image.
 
@@ -204,12 +203,14 @@ def _label2rgb_overlay(
         The result of blending a cycling colormap (`colors`) for each distinct
         value in `label` with the image, at a certain alpha value.
     """
+    xp = array_namespace(label, image)
+
     if not 0 <= saturation <= 1:
         warn(f'saturation must be in range [0, 1], got {saturation}')
 
     if colors is None:
         colors = DEFAULT_COLORS
-    colors = [_rgb_vector(c) for c in colors]
+    colors = [_rgb_vector(c, xp) for c in colors]
 
     if image is None:
         image = xp.zeros(label.shape + (3,), dtype=xp.float64)
@@ -248,7 +249,7 @@ def _label2rgb_overlay(
     label = xp.astype(label, new_type)
 
     mapped_labels_flat, color_cycle = _match_label_with_color(
-        label, colors, bg_label, bg_color
+        label, colors, bg_label, bg_color, xp
     )
 
     if len(mapped_labels_flat) == 0:
@@ -289,6 +290,8 @@ def _label2rgb_avg(label_field, image, bg_label=0, bg_color=(0, 0, 0)):
     out : ndarray, same shape and type as `image`
         The output visualization.
     """
+    xp = array_namespace(label_field, image)
+
     out = xp.zeros(label_field.shape + (3,), dtype=image.dtype)
     labels = xp.unique_values(label_field)
     bg = labels == bg_label

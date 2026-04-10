@@ -5,7 +5,7 @@ import numpy as np
 from .. import color
 from ..util.dtype import _convert
 
-xp = np
+from _skimage2.util._array_api import array_namespace
 
 
 __all__ = ['adapt_rgb', 'hsv_value', 'each_channel']
@@ -60,8 +60,9 @@ def hsv_value(image_filter, image, *args, **kwargs):
         Input image. Note that RGBA images are treated as RGB.
     """
     # Slice the first three channels so that we remove any alpha channels.
+    xp = array_namespace(image)
     hsv = color.rgb2hsv(image[:, :, :3])
-    value = hsv[:, :, 2].copy()
+    value = xp.asarray(hsv[:, :, 2], copy=True)
     value = image_filter(value, *args, **kwargs)
     hsv[:, :, 2] = _convert(value, hsv.dtype)
     return color.hsv2rgb(hsv)
@@ -79,5 +80,6 @@ def each_channel(image_filter, image, *args, **kwargs):
     image : array
         Input image.
     """
+    xp = array_namespace(image)
     c_new = [image_filter(c, *args, **kwargs) for c in xp.moveaxis(image, -1, 0)]
     return xp.stack(c_new, axis=-1)

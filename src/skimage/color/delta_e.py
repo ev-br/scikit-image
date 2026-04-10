@@ -24,8 +24,7 @@ import numpy as np
 from _skimage2._shared.utils import _supported_float_type
 from .colorconv import lab2lch, _cart2polar_2pi
 
-xp = np
-
+from _skimage2.util._array_api import array_namespace
 
 def _deg2rad(x):
     """np.deg2rad replacement."""
@@ -37,7 +36,7 @@ def _rad2deg(x):
     return 180 * x / math.pi
 
 
-def _float_inputs(lab1, lab2, allow_float32=True):
+def _float_inputs(lab1, lab2, xp, allow_float32=True):
     lab1 = xp.asarray(lab1)
     lab2 = xp.asarray(lab2)
     if allow_float32:
@@ -76,7 +75,9 @@ def deltaE_cie76(lab1, lab2, channel_axis=-1):
     .. [2] A. R. Robertson, "The CIE 1976 color-difference formulae,"
            Color Res. Appl. 2, 7-11 (1977).
     """
-    lab1, lab2 = _float_inputs(lab1, lab2, allow_float32=True)
+    xp = array_namespace(lab1, lab2)
+
+    lab1, lab2 = _float_inputs(lab1, lab2, xp, allow_float32=True)
     L1, a1, b1 = xp.moveaxis(lab1, source=channel_axis, destination=0)[:3]
     L2, a2, b2 = xp.moveaxis(lab2, source=channel_axis, destination=0)[:3]
     return xp.sqrt((L2 - L1) ** 2 + (a2 - a1) ** 2 + (b2 - b1) ** 2)
@@ -141,7 +142,9 @@ def deltaE_ciede94(
     .. [1] https://en.wikipedia.org/wiki/Color_difference
     .. [2] http://www.brucelindbloom.com/index.html?Eqn_DeltaE_CIE94.html
     """
-    lab1, lab2 = _float_inputs(lab1, lab2, allow_float32=True)
+    xp = array_namespace(lab1, lab2)
+
+    lab1, lab2 = _float_inputs(lab1, lab2, xp, allow_float32=True)
     lab1 = xp.moveaxis(lab1, source=channel_axis, destination=0)
     lab2 = xp.moveaxis(lab2, source=channel_axis, destination=0)
 
@@ -150,7 +153,7 @@ def deltaE_ciede94(
 
     dL = L1 - L2
     dC = C1 - C2
-    dH2 = get_dH2(lab1, lab2, channel_axis=0)
+    dH2 = _get_dH2(lab1, lab2, xp, channel_axis=0)
 
     SL = 1
     SC = 1 + k1 * C1
@@ -207,7 +210,9 @@ def deltaE_ciede2000(lab1, lab2, kL=1, kC=1, kH=1, *, channel_axis=-1):
            color metrics tested with an accurate color-difference tolerance
            dataset," Appl. Opt. 33, 8069-8077 (1994).
     """
-    lab1, lab2 = _float_inputs(lab1, lab2, allow_float32=True)
+    xp = array_namespace(lab1, lab2)
+
+    lab1, lab2 = _float_inputs(lab1, lab2, xp, allow_float32=True)
 
     channel_axis = channel_axis % lab1.ndim
     unroll = False
@@ -229,8 +234,8 @@ def deltaE_ciede2000(lab1, lab2, kL=1, kC=1, kH=1, *, channel_axis=-1):
     c7 = Cbar**7
     G = 0.5 * (1 - xp.sqrt(c7 / (c7 + 25**7)))
     scale = 1 + G
-    C1, h1 = _cart2polar_2pi(a1 * scale, b1)
-    C2, h2 = _cart2polar_2pi(a2 * scale, b2)
+    C1, h1 = _cart2polar_2pi(a1 * scale, b1, xp)
+    C2, h2 = _cart2polar_2pi(a2 * scale, b2, xp)
     # recall that c, h are polar coordinates.  c==r, h==theta
 
     # cide2000 has four terms to delta_e:
@@ -255,7 +260,7 @@ def deltaE_ciede2000(lab1, lab2, kL=1, kC=1, kH=1, *, channel_axis=-1):
     h_sum = h1 + h2
     CC = C1 * C2
 
-    dH = h_diff.copy()
+    dH = xp.asarray(h_diff, copy=True)
     dH[h_diff > math.pi] -= 2 * math.pi
     dH[h_diff < -math.pi] += 2 * math.pi
     dH[CC == 0.0] = 0.0  # if r == 0, dtheta == 0
@@ -341,7 +346,9 @@ def deltaE_cmc(lab1, lab2, kL=1, kC=1, *, channel_axis=-1):
            JPC79 colour-difference formula," J. Soc. Dyers Colour. 100, 128-132
            (1984).
     """
-    lab1, lab2 = _float_inputs(lab1, lab2, allow_float32=True)
+    xp = array_namespace(lab1, lab2)
+
+    lab1, lab2 = _float_inputs(lab1, lab2, xp, allow_float32=True)
     lab1 = xp.moveaxis(lab1, source=channel_axis, destination=0)
     lab2 = xp.moveaxis(lab2, source=channel_axis, destination=0)
     L1, C1, h1 = lab2lch(lab1, channel_axis=0)[:3]
@@ -349,7 +356,7 @@ def deltaE_cmc(lab1, lab2, kL=1, kC=1, *, channel_axis=-1):
 
     dC = C1 - C2
     dL = L1 - L2
-    dH2 = get_dH2(lab1, lab2, channel_axis=0)
+    dH2 = _get_dH2(lab1, lab2, xp, channel_axis=0)
 
     T = xp.where(
         xp.logical_and(_rad2deg(h1) >= 164, _rad2deg(h1) <= 345),
@@ -370,7 +377,7 @@ def deltaE_cmc(lab1, lab2, kL=1, kC=1, *, channel_axis=-1):
     return xp.sqrt(xp.maximum(dE2, 0))
 
 
-def get_dH2(lab1, lab2, *, channel_axis=-1):
+def _get_dH2(lab1, lab2, xp, *, channel_axis=-1):
     """squared hue difference term occurring in deltaE_cmc and deltaE_ciede94
 
     Despite its name, "dH" is not a simple difference of hue values.  We avoid
@@ -390,7 +397,7 @@ def get_dH2(lab1, lab2, *, channel_axis=-1):
     """
     # This function needs double precision internally for accuracy
     input_is_float_32 = _supported_float_type((lab1.dtype, lab2.dtype)) == xp.float32
-    lab1, lab2 = _float_inputs(lab1, lab2, allow_float32=False)
+    lab1, lab2 = _float_inputs(lab1, lab2, xp, allow_float32=False)
 
     a1, b1 = xp.moveaxis(lab1, source=channel_axis, destination=0)[1:3]
     a2, b2 = xp.moveaxis(lab2, source=channel_axis, destination=0)[1:3]
