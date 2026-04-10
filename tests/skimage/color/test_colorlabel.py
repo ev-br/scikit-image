@@ -3,9 +3,11 @@ import itertools
 import numpy as np
 import pytest
 from numpy.testing import (
-    assert_array_almost_equal,
-    assert_array_equal,
     assert_no_warnings,
+)
+
+from _skimage2.util._array_api import (
+    assert_almost_equal, assert_array_almost_equal, xp_assert_equal,
 )
 
 from _skimage2._shared.testing import expected_warnings
@@ -150,7 +152,7 @@ def test_leave_labels_alone():
 
     label2rgb(labels, bg_label=-1)
     label2rgb(labels, bg_label=1)
-    assert_array_equal(labels, labels_saved)
+    xp_assert_equal(labels, labels_saved)
 
 
 @pytest.mark.parametrize("channel_axis", [0, 1, -1])
@@ -178,7 +180,7 @@ def test_avg(channel_axis):
         label_field, _image, kind='avg', bg_label=-1, channel_axis=channel_axis
     )
     out = np.moveaxis(out, source=channel_axis, destination=-1)
-    assert_array_equal(out, expected_out)
+    xp_assert_equal(out, expected_out)
 
     # test averaging with custom background value
     out_bg = label2rgb(
@@ -192,14 +194,14 @@ def test_avg(channel_axis):
     out_bg = np.moveaxis(out_bg, source=channel_axis, destination=-1)
     expected_out_bg = expected_out.copy()
     expected_out_bg[label_field == 2] = 0
-    assert_array_equal(out_bg, expected_out_bg)
+    xp_assert_equal(out_bg, expected_out_bg)
 
     # test default background color
     out_bg = label2rgb(
         label_field, _image, bg_label=2, kind='avg', channel_axis=channel_axis
     )
     out_bg = np.moveaxis(out_bg, source=channel_axis, destination=-1)
-    assert_array_equal(out_bg, expected_out_bg)
+    xp_assert_equal(out_bg, expected_out_bg)
 
 
 def test_negative_intensity():
@@ -253,14 +255,14 @@ def test_label2rgb_nd(image_type):
     image_1d = img[5] if image_type is not None else None
     labeled_1d = label2rgb(labels[5], image=image_1d, bg_label=0)
     expected = labeled_2d[5]
-    assert_array_equal(labeled_1d, expected)
+    xp_assert_equal(labeled_1d, expected)
 
     # Labeling a 3D stack of duplicates gives the same result in each plane
     image_3d = np.stack((img,) * 4) if image_type is not None else None
     labels_3d = np.stack((labels,) * 4)
     labeled_3d = label2rgb(labels_3d, image=image_3d, bg_label=0)
     for labeled_plane in labeled_3d:
-        assert_array_equal(labeled_plane, labeled_2d)
+        xp_assert_equal(labeled_plane, labeled_2d)
 
 
 def test_label2rgb_shape_errors():

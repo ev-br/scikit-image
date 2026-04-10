@@ -6,13 +6,17 @@ from skimage import img_as_float, img_as_uint
 from skimage import color, data, filters
 from skimage.color.adapt_rgb import adapt_rgb, each_channel, hsv_value
 
+from _skimage2.util._array_api import (
+    xp_assert_close
+)
+
 # Down-sample image for quicker testing.
 COLOR_IMAGE = data.astronaut()[::5, ::6]
 GRAY_IMAGE = data.camera()[::5, ::5]
 
 SIGMA = 3
 smooth = partial(filters.gaussian, sigma=SIGMA)
-assert_allclose = partial(np.testing.assert_allclose, atol=1e-8)
+assert_allclose = partial(xp_assert_close, atol=1e-8)
 
 
 @adapt_rgb(each_channel)

@@ -2,7 +2,10 @@
 
 import numpy as np
 import pytest
-from numpy.testing import assert_allclose, assert_almost_equal, assert_equal
+
+from _skimage2.util._array_api import (
+    assert_almost_equal, assert_array_almost_equal, xp_assert_equal, xp_assert_close
+)
 
 from _skimage2._shared.utils import _supported_float_type
 from skimage.color.delta_e import (
@@ -33,7 +36,7 @@ def test_ciede2000_dE(dtype, channel_axis, test_root_dir):
     dE2 = deltaE_ciede2000(lab1, lab2, channel_axis=channel_axis)
     assert dE2.dtype == _supported_float_type(dtype)
 
-    assert_allclose(dE2, data['dE'], rtol=1e-2)
+    xp_assert_close(dE2, data['dE'], rtol=1e-2, check_dtype=False)
 
 
 def load_ciede2000_data(prefix):
@@ -122,10 +125,10 @@ def test_cie76(dtype, channel_axis, test_root_dir):
             2.3237848,
             0.94413208,
             1.31910843,
-        ]
+        ], dtype=dtype
     )
     rtol = 1e-5 if dtype == np.float32 else 1e-8
-    assert_allclose(dE2, oracle, rtol=rtol)
+    xp_assert_close(dE2, oracle, rtol=rtol)
 
 
 @pytest.mark.parametrize("channel_axis", [0, 1, -1])
@@ -183,10 +186,10 @@ def test_ciede94(dtype, channel_axis, test_root_dir):
             2.3225685,
             0.93853308,
             1.30654464,
-        ]
+        ], dtype=dtype
     )
     rtol = 1e-5 if dtype == np.float32 else 1e-8
-    assert_allclose(dE2, oracle, rtol=rtol)
+    xp_assert_close(dE2, oracle, rtol=rtol)
 
 
 @pytest.mark.parametrize("channel_axis", [0, 1, -1])
@@ -244,10 +247,10 @@ def test_cmc(dtype, channel_axis, test_root_dir):
             1.70258148,
             1.80317207,
             2.44934417,
-        ]
+        ], dtype=dtype
     )
     rtol = 1e-5 if dtype == np.float32 else 1e-8
-    assert_allclose(dE2, oracle, rtol=rtol)
+    xp_assert_close(dE2, oracle, rtol=rtol)
 
     # Equal or close colors make `delta_e.get_dH2` function to return
     # negative values resulting in NaNs when passed to sqrt (see #1908
@@ -267,10 +270,10 @@ def test_cmc(dtype, channel_axis, test_root_dir):
 def test_cmc_single_item():
     # Single item case:
     lab1 = lab2 = np.array([0.0, 1.59607713, 0.87755709])
-    assert_equal(deltaE_cmc(lab1, lab2), 0)
+    assert deltaE_cmc(lab1, lab2) == 0
 
     lab2[0] += np.finfo(float).eps
-    assert_equal(deltaE_cmc(lab1, lab2), 0)
+    assert deltaE_cmc(lab1, lab2) == 0
 
 
 def test_single_color_cie76():
