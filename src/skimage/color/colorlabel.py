@@ -144,14 +144,16 @@ def label2rgb(
         The result of blending a cycling colormap (`colors`) for each distinct
         value in `label` with the image, at a certain alpha value.
     """
+    xp = array_namespace(image, label)
+
     if image is not None:
         image = xp.moveaxis(image, source=channel_axis, destination=-1)
     if kind == 'overlay':
         rgb = _label2rgb_overlay(
-            label, image, colors, alpha, bg_label, bg_color, image_alpha, saturation
+            label, image, colors, alpha, bg_label, bg_color, image_alpha, saturation, xp
         )
     elif kind == 'avg':
-        rgb = _label2rgb_avg(label, image, bg_label, bg_color)
+        rgb = _label2rgb_avg(label, image, bg_label, bg_color, xp)
     else:
         raise ValueError("`kind` must be either 'overlay' or 'avg'.")
     return xp.moveaxis(rgb, source=-1, destination=channel_axis)
@@ -166,6 +168,7 @@ def _label2rgb_overlay(
     bg_color=None,
     image_alpha=1,
     saturation=0,
+    xp,
 ):
     """Return an RGB image where color-coded labels are painted over the image.
 
@@ -222,7 +225,7 @@ def _label2rgb_overlay(
         if image.min() < 0:
             warn("Negative intensities in `image` are not supported")
 
-        float_dtype = _supported_float_type(image.dtype)
+        float_dtype = _supported_float_type(image.dtype, xp)
         image = xp.astype(img_as_float(image), float_dtype, copy=False)
         if image.ndim > label.ndim:
             hsv = rgb2hsv(image)
