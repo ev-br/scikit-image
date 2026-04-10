@@ -412,13 +412,13 @@ class TestColorconv:
         assert rgb2gray(x[:5, :5]).flags["C_CONTIGUOUS"]
 
     def test_rgb2gray_alpha(self):
-        x = np.empty((10, 10, 4))
+        x = xp.empty((10, 10, 4))
         with pytest.raises(ValueError):
             rgb2gray(x)
 
     def test_rgb2gray_on_gray(self):
         with pytest.raises(ValueError):
-            rgb2gray(np.empty((5, 5)))
+            rgb2gray(xp.empty((5, 5)))
 
     def test_rgb2gray_dtype(self):
         img = xp.astype(np.random.rand(10, 10, 3), xp.float64)
@@ -566,13 +566,13 @@ class TestColorconv:
             for obs in ["2", "10", "R"]:
                 obs = obs.lower()
                 fname = f'color/data/luv_array_{I}_{obs}.npy'
-                luv_array_I_obs = np.load(test_root_dir / fname)
+                luv_array_I_obs = xp.asarray(np.load(test_root_dir / fname))
                 assert_array_almost_equal(
                     luv_array_I_obs, xyz2luv(self.xyz_array, I, obs), decimal=2
                 )
         for I in ["d75", "e"]:
             fname = f'color/data/luv_array_{I}_2.npy'
-            luv_array_I_obs = np.load(test_root_dir / fname)
+            luv_array_I_obs = xp.asarray(np.load(test_root_dir / fname))
             assert_array_almost_equal(
                 luv_array_I_obs, xyz2luv(self.xyz_array, I, "2"), decimal=2
             )
@@ -586,7 +586,7 @@ class TestColorconv:
         assert_array_almost_equal(luv, self.luv_array, decimal=3)
 
     def test_xyz2luv_dtype(self):
-        img = self.xyz_array.astype('float64')
+        img = xp.astype(self.xyz_array, xp.float64)
         img32 = xp.astype(img, xp.float32)
 
         assert xyz2luv(img).dtype == img.dtype
@@ -601,13 +601,13 @@ class TestColorconv:
             for obs in ["2", "10", "R"]:
                 obs = obs.lower()
                 fname = f'color/data/luv_array_{I}_{obs}.npy'
-                luv_array_I_obs = np.load(test_root_dir / fname)
+                luv_array_I_obs = xp.asarray(np.load(test_root_dir / fname))
                 assert_array_almost_equal(
                     luv2xyz(luv_array_I_obs, I, obs), self.xyz_array, decimal=3
                 )
         for I in ["d75", "e"]:
             fname = f'color/data/luv_array_{I}_2.npy'
-            luv_array_I_obs = np.load(test_root_dir / fname)
+            luv_array_I_obs = xp.asarray(np.load(test_root_dir / fname))
             assert_array_almost_equal(
                 luv2xyz(luv_array_I_obs, I, "2"), self.xyz_array, decimal=3
             )
@@ -621,7 +621,7 @@ class TestColorconv:
         assert_array_almost_equal(xyz, self.xyz_array, decimal=3)
 
     def test_luv2xyz_dtype(self):
-        img = self.luv_array.astype('float64')
+        img = xp.astype(self.luv_array, xp.float64)
         img32 = xp.astype(img, xp.float32)
 
         assert luv2xyz(img).dtype == img.dtype
@@ -675,7 +675,7 @@ class TestColorconv:
         )
 
     def test_lab_rgb_outlier(self):
-        lab_array = np.ones((3, 1, 3))
+        lab_array = xp.ones((3, 1, 3))
         lab_array[0] = [50, -12, 85]
         lab_array[1] = [50, 12, -85]
         lab_array[2] = [90, -4, -47]
@@ -689,8 +689,8 @@ class TestColorconv:
         assert_almost_equal(lab2rgb(lab_array), rgb_array, decimal=3)
 
     def test_lab_full_gamut(self):
-        a, b = np.meshgrid(np.arange(-100, 100), np.arange(-100, 100))
-        L = np.ones(a.shape)
+        a, b = xp.meshgrid(xp.arange(-100, 100), xp.arange(-100, 100))
+        L = xp.ones(a.shape)
         lab = np.dstack((L, a, b))
         regex = (
             "Conversion from CIE-LAB to XYZ color space resulted in "

@@ -15,24 +15,26 @@ from skimage.color.delta_e import (
     deltaE_cmc,
 )
 
+xp = np
+
 
 @pytest.mark.parametrize("channel_axis", [0, 1, -1])
-@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('dtype', [xp.float32, xp.float64])
 def test_ciede2000_dE(dtype, channel_axis, test_root_dir):
     data = load_ciede2000_data(test_root_dir)
     N = len(data)
-    lab1 = np.zeros((N, 3), dtype=dtype)
+    lab1 = xp.zeros((N, 3), dtype=dtype)
     lab1[:, 0] = data['L1']
     lab1[:, 1] = data['a1']
     lab1[:, 2] = data['b1']
 
-    lab2 = np.zeros((N, 3), dtype=dtype)
+    lab2 = xp.zeros((N, 3), dtype=dtype)
     lab2[:, 0] = data['L2']
     lab2[:, 1] = data['a2']
     lab2[:, 2] = data['b2']
 
-    lab1 = np.moveaxis(lab1, source=-1, destination=channel_axis)
-    lab2 = np.moveaxis(lab2, source=-1, destination=channel_axis)
+    lab1 = xp.moveaxis(lab1, source=-1, destination=channel_axis)
+    lab2 = xp.moveaxis(lab2, source=-1, destination=channel_axis)
     dE2 = deltaE_ciede2000(lab1, lab2, channel_axis=channel_axis)
     assert dE2.dtype == _supported_float_type(dtype)
 
@@ -71,25 +73,25 @@ def load_ciede2000_data(prefix):
 
 
 @pytest.mark.parametrize("channel_axis", [0, 1, -1])
-@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('dtype', [xp.float32, xp.float64])
 def test_cie76(dtype, channel_axis, test_root_dir):
     data = load_ciede2000_data(test_root_dir)
     N = len(data)
-    lab1 = np.zeros((N, 3), dtype=dtype)
+    lab1 = xp.zeros((N, 3), dtype=dtype)
     lab1[:, 0] = data['L1']
     lab1[:, 1] = data['a1']
     lab1[:, 2] = data['b1']
 
-    lab2 = np.zeros((N, 3), dtype=dtype)
+    lab2 = xp.zeros((N, 3), dtype=dtype)
     lab2[:, 0] = data['L2']
     lab2[:, 1] = data['a2']
     lab2[:, 2] = data['b2']
 
-    lab1 = np.moveaxis(lab1, source=-1, destination=channel_axis)
-    lab2 = np.moveaxis(lab2, source=-1, destination=channel_axis)
+    lab1 = xp.moveaxis(lab1, source=-1, destination=channel_axis)
+    lab2 = xp.moveaxis(lab2, source=-1, destination=channel_axis)
     dE2 = deltaE_cie76(lab1, lab2, channel_axis=channel_axis)
     assert dE2.dtype == _supported_float_type(dtype)
-    oracle = np.array(
+    oracle = xp.array(
         [
             4.00106328,
             6.31415011,
@@ -127,30 +129,30 @@ def test_cie76(dtype, channel_axis, test_root_dir):
             1.31910843,
         ], dtype=dtype
     )
-    rtol = 1e-5 if dtype == np.float32 else 1e-8
+    rtol = 1e-5 if dtype == xp.float32 else 1e-8
     xp_assert_close(dE2, oracle, rtol=rtol)
 
 
 @pytest.mark.parametrize("channel_axis", [0, 1, -1])
-@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('dtype', [xp.float32, xp.float64])
 def test_ciede94(dtype, channel_axis, test_root_dir):
     data = load_ciede2000_data(test_root_dir)
     N = len(data)
-    lab1 = np.zeros((N, 3), dtype=dtype)
+    lab1 = xp.zeros((N, 3), dtype=dtype)
     lab1[:, 0] = data['L1']
     lab1[:, 1] = data['a1']
     lab1[:, 2] = data['b1']
 
-    lab2 = np.zeros((N, 3), dtype=dtype)
+    lab2 = xp.zeros((N, 3), dtype=dtype)
     lab2[:, 0] = data['L2']
     lab2[:, 1] = data['a2']
     lab2[:, 2] = data['b2']
 
-    lab1 = np.moveaxis(lab1, source=-1, destination=channel_axis)
-    lab2 = np.moveaxis(lab2, source=-1, destination=channel_axis)
+    lab1 = xp.moveaxis(lab1, source=-1, destination=channel_axis)
+    lab2 = xp.moveaxis(lab2, source=-1, destination=channel_axis)
     dE2 = deltaE_ciede94(lab1, lab2, channel_axis=channel_axis)
     assert dE2.dtype == _supported_float_type(dtype)
-    oracle = np.array(
+    oracle = xp.asarray(
         [
             1.39503887,
             1.93410055,
@@ -188,30 +190,30 @@ def test_ciede94(dtype, channel_axis, test_root_dir):
             1.30654464,
         ], dtype=dtype
     )
-    rtol = 1e-5 if dtype == np.float32 else 1e-8
+    rtol = 1e-5 if dtype == xp.float32 else 1e-8
     xp_assert_close(dE2, oracle, rtol=rtol)
 
 
 @pytest.mark.parametrize("channel_axis", [0, 1, -1])
-@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+@pytest.mark.parametrize('dtype', [xp.float32, xp.float64])
 def test_cmc(dtype, channel_axis, test_root_dir):
     data = load_ciede2000_data(test_root_dir)
     N = len(data)
-    lab1 = np.zeros((N, 3), dtype=dtype)
+    lab1 = xp.zeros((N, 3), dtype=dtype)
     lab1[:, 0] = data['L1']
     lab1[:, 1] = data['a1']
     lab1[:, 2] = data['b1']
 
-    lab2 = np.zeros((N, 3), dtype=dtype)
+    lab2 = xp.zeros((N, 3), dtype=dtype)
     lab2[:, 0] = data['L2']
     lab2[:, 1] = data['a2']
     lab2[:, 2] = data['b2']
 
-    lab1 = np.moveaxis(lab1, source=-1, destination=channel_axis)
-    lab2 = np.moveaxis(lab2, source=-1, destination=channel_axis)
+    lab1 = xp.moveaxis(lab1, source=-1, destination=channel_axis)
+    lab2 = xp.moveaxis(lab2, source=-1, destination=channel_axis)
     dE2 = deltaE_cmc(lab1, lab2, channel_axis=channel_axis)
     assert dE2.dtype == _supported_float_type(dtype)
-    oracle = np.array(
+    oracle = xp.asarray(
         [
             1.73873611,
             2.49660844,
@@ -249,19 +251,19 @@ def test_cmc(dtype, channel_axis, test_root_dir):
             2.44934417,
         ], dtype=dtype
     )
-    rtol = 1e-5 if dtype == np.float32 else 1e-8
+    rtol = 1e-5 if dtype == xp.float32 else 1e-8
     xp_assert_close(dE2, oracle, rtol=rtol)
 
     # Equal or close colors make `delta_e.get_dH2` function to return
     # negative values resulting in NaNs when passed to sqrt (see #1908
     # issue on Github):
     lab1 = lab2
-    expected = np.zeros_like(oracle)
+    expected = xp.zeros_like(oracle)
     assert_almost_equal(
         deltaE_cmc(lab1, lab2, channel_axis=channel_axis), expected, decimal=6
     )
 
-    lab2[0, 0] += np.finfo(float).eps
+    lab2[0, 0] += xp.finfo(float).eps
     assert_almost_equal(
         deltaE_cmc(lab1, lab2, channel_axis=channel_axis), expected, decimal=6
     )
@@ -269,10 +271,10 @@ def test_cmc(dtype, channel_axis, test_root_dir):
 
 def test_cmc_single_item():
     # Single item case:
-    lab1 = lab2 = np.array([0.0, 1.59607713, 0.87755709])
+    lab1 = lab2 = xp.array([0.0, 1.59607713, 0.87755709])
     assert deltaE_cmc(lab1, lab2) == 0
 
-    lab2[0] += np.finfo(float).eps
+    lab2[0] += xp.finfo(float).eps
     assert deltaE_cmc(lab1, lab2) == 0
 
 

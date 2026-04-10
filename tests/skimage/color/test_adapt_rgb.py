@@ -10,6 +10,8 @@ from _skimage2.util._array_api import (
     xp_assert_close
 )
 
+xp = np
+
 # Down-sample image for quicker testing.
 COLOR_IMAGE = data.astronaut()[::5, ::6]
 GRAY_IMAGE = data.camera()[::5, ::5]
@@ -71,7 +73,7 @@ def test_each_channel_with_filter_argument():
 
 
 def test_each_channel_with_asymmetric_kernel():
-    mask = np.triu(np.ones(COLOR_IMAGE.shape[:2], dtype=bool))
+    mask = xp.triu(xp.ones(COLOR_IMAGE.shape[:2], dtype=bool))
     mask_each(COLOR_IMAGE, mask)
 
 
