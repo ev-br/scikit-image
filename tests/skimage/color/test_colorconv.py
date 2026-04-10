@@ -11,7 +11,10 @@ Authors
 import colorsys
 import numpy as np
 import pytest
-from numpy.testing import assert_almost_equal, assert_array_almost_equal, assert_equal
+
+# from numpy.testing import assert_almost_equal, assert_array_almost_equal, assert_equal
+from numpy.testing import assert_equal
+from _skimage2.util._array_api import assert_almost_equal, assert_array_almost_equal
 
 from skimage import data
 from _skimage2._shared._warnings import expected_warnings
@@ -392,7 +395,7 @@ class TestColorconv:
         x = np.array([1, 1, 1]).reshape((1, 1, 3)).astype(float)
         x = np.moveaxis(x, source=-1, destination=channel_axis)
         g = rgb2gray(x, channel_axis=channel_axis)
-        assert_array_almost_equal(g, 1)
+        assert_array_almost_equal(g, xp.asarray(1))
 
         assert_equal(g.shape, (1, 1))
 
