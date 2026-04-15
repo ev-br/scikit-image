@@ -296,7 +296,7 @@ def test_single_color_ciede2000():
     deltaE_ciede2000(lab1, lab2)
 
 
-def test_single_color_cmc():
+def test_single_color_cmc(xp):
     lab1 = (0.5, 0.5, 0.5)
     lab2 = (0.4, 0.4, 0.4)
     deltaE_cmc(lab1, lab2)
