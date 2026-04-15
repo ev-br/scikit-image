@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 
 import click
 import spin
@@ -95,9 +96,17 @@ Use an editable install (`spin install`) which supports this or avoid passing
 """
 
 
+@click.option(
+    '--array-api-backend', '-b', default=None, metavar='ARRAY_BACKEND',
+    multiple=True,
+    help=(
+        "Array API backend "
+        "('all', 'numpy', 'torch', 'cupy', 'array_api_strict', " "'jax.numpy')."
+    )
+)
 @click.option("--doctest/--no-doctest", default=True, help="Whether to run doctests.")
 @spin.util.extend_command(spin.cmds.meson.test)
-def test(*, parent_callback, doctest=False, **kwargs):
+def test(*, parent_callback, array_api_backend, doctest=False, **kwargs):
     pytest_args = kwargs.get('pytest_args', ())
 
     is_out_of_tree_build = not _is_editable_install_of_same_source("scikit-image")
@@ -107,6 +116,9 @@ def test(*, parent_callback, doctest=False, **kwargs):
     if doctest:
         if '--doctest-plus' not in pytest_args:
             pytest_args = ('--doctest-plus',) + pytest_args
+
+    if len(array_api_backend) != 0:
+        os.environ['SCIPY_ARRAY_API'] = json.dumps(list(array_api_backend))
 
     kwargs["pytest_args"] = pytest_args
     parent_callback(**kwargs)
