@@ -14,7 +14,9 @@ from _pytest.terminal import TerminalReporter
 from _pytest.pathlib import bestrelpath
 
 import numpy as np
-from _skimage2.util._array_api import SCIPY_ARRAY_API, array_namespace, default_xp
+from _skimage2.util._array_api import (
+    SCIPY_ARRAY_API, SCIPY_DEVICE, array_namespace, default_xp
+)
 
 
 FREE_THREADED_BUILD = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))

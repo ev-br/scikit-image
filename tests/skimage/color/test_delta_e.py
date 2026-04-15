@@ -15,30 +15,36 @@ from skimage.color.delta_e import (
     deltaE_cmc,
 )
 
-xp = np
-
 
 @pytest.mark.parametrize("channel_axis", [0, 1, -1])
-@pytest.mark.parametrize('dtype', [xp.float32, xp.float64])
-def test_ciede2000_dE(dtype, channel_axis, test_root_dir):
+@pytest.mark.parametrize('dtype', ["float32", "float64"])
+def test_ciede2000_dE(dtype, channel_axis, test_root_dir, xp):
     data = load_ciede2000_data(test_root_dir)
     N = len(data)
-    lab1 = xp.zeros((N, 3), dtype=dtype)
+    dtype_np = getattr(np, dtype)
+    dtype = getattr(xp, dtype)
+
+    lab1 = np.zeros((N, 3), dtype=dtype_np)
     lab1[:, 0] = data['L1']
     lab1[:, 1] = data['a1']
     lab1[:, 2] = data['b1']
+    lab1 = xp.asarray(lab1)
 
-    lab2 = xp.zeros((N, 3), dtype=dtype)
+    lab2 = np.zeros((N, 3), dtype=dtype_np)
     lab2[:, 0] = data['L2']
     lab2[:, 1] = data['a2']
     lab2[:, 2] = data['b2']
+    lab2 = xp.asarray(lab2)
 
-    lab1 = xp.moveaxis(lab1, source=-1, destination=channel_axis)
-    lab2 = xp.moveaxis(lab2, source=-1, destination=channel_axis)
+    lab1 = xp.moveaxis(lab1, -1, channel_axis)
+    lab2 = xp.moveaxis(lab2, -1, channel_axis)
+
+   ## breakpoint()
+
     dE2 = deltaE_ciede2000(lab1, lab2, channel_axis=channel_axis)
-    assert dE2.dtype == _supported_float_type(dtype)
+    assert dE2.dtype == _supported_float_type(dtype, xp=xp)
 
-    xp_assert_close(dE2, data['dE'], rtol=1e-2, check_dtype=False)
+    xp_assert_close(dE2, xp.asarray(data['dE']), rtol=1e-2, check_dtype=False)
 
 
 def load_ciede2000_data(prefix):
@@ -73,25 +79,30 @@ def load_ciede2000_data(prefix):
 
 
 @pytest.mark.parametrize("channel_axis", [0, 1, -1])
-@pytest.mark.parametrize('dtype', [xp.float32, xp.float64])
-def test_cie76(dtype, channel_axis, test_root_dir):
+@pytest.mark.parametrize('dtype', ["float32", "float64"])
+def test_cie76(dtype, channel_axis, test_root_dir, xp):
     data = load_ciede2000_data(test_root_dir)
     N = len(data)
-    lab1 = xp.zeros((N, 3), dtype=dtype)
+    dtype_np = getattr(np, dtype)
+    dtype = getattr(xp, dtype)
+
+    lab1 = np.zeros((N, 3), dtype=dtype_np)
     lab1[:, 0] = data['L1']
     lab1[:, 1] = data['a1']
     lab1[:, 2] = data['b1']
+    lab1 = xp.asarray(lab1)
 
-    lab2 = xp.zeros((N, 3), dtype=dtype)
+    lab2 = np.zeros((N, 3), dtype=dtype_np)
     lab2[:, 0] = data['L2']
     lab2[:, 1] = data['a2']
     lab2[:, 2] = data['b2']
+    lab2 = xp.asarray(lab2)
 
-    lab1 = xp.moveaxis(lab1, source=-1, destination=channel_axis)
-    lab2 = xp.moveaxis(lab2, source=-1, destination=channel_axis)
+    lab1 = xp.moveaxis(lab1, -1, channel_axis)
+    lab2 = xp.moveaxis(lab2, -1, channel_axis)
     dE2 = deltaE_cie76(lab1, lab2, channel_axis=channel_axis)
-    assert dE2.dtype == _supported_float_type(dtype)
-    oracle = xp.array(
+    assert dE2.dtype == _supported_float_type(dtype, xp=xp)
+    oracle = xp.asarray(
         [
             4.00106328,
             6.31415011,
@@ -134,24 +145,29 @@ def test_cie76(dtype, channel_axis, test_root_dir):
 
 
 @pytest.mark.parametrize("channel_axis", [0, 1, -1])
-@pytest.mark.parametrize('dtype', [xp.float32, xp.float64])
-def test_ciede94(dtype, channel_axis, test_root_dir):
+@pytest.mark.parametrize('dtype', ["float32", "float64"])
+def test_ciede94(dtype, channel_axis, test_root_dir, xp):
     data = load_ciede2000_data(test_root_dir)
     N = len(data)
-    lab1 = xp.zeros((N, 3), dtype=dtype)
+    dtype_np = getattr(np, dtype)
+    dtype = getattr(xp, dtype)
+
+    lab1 = np.zeros((N, 3), dtype=dtype_np)
     lab1[:, 0] = data['L1']
     lab1[:, 1] = data['a1']
     lab1[:, 2] = data['b1']
+    lab1 = xp.asarray(lab1, dtype=dtype)
 
-    lab2 = xp.zeros((N, 3), dtype=dtype)
+    lab2 = np.zeros((N, 3), dtype=dtype_np)
     lab2[:, 0] = data['L2']
     lab2[:, 1] = data['a2']
     lab2[:, 2] = data['b2']
+    lab2 = xp.asarray(lab2, dtype=dtype)
 
-    lab1 = xp.moveaxis(lab1, source=-1, destination=channel_axis)
-    lab2 = xp.moveaxis(lab2, source=-1, destination=channel_axis)
+    lab1 = xp.moveaxis(lab1, -1, channel_axis)
+    lab2 = xp.moveaxis(lab2, -1, channel_axis)
     dE2 = deltaE_ciede94(lab1, lab2, channel_axis=channel_axis)
-    assert dE2.dtype == _supported_float_type(dtype)
+    assert dE2.dtype == _supported_float_type(dtype, xp=xp)
     oracle = xp.asarray(
         [
             1.39503887,
@@ -195,24 +211,29 @@ def test_ciede94(dtype, channel_axis, test_root_dir):
 
 
 @pytest.mark.parametrize("channel_axis", [0, 1, -1])
-@pytest.mark.parametrize('dtype', [xp.float32, xp.float64])
-def test_cmc(dtype, channel_axis, test_root_dir):
+@pytest.mark.parametrize('dtype', ["float32", "float64"])
+def test_cmc(dtype, channel_axis, test_root_dir, xp):
     data = load_ciede2000_data(test_root_dir)
     N = len(data)
-    lab1 = xp.zeros((N, 3), dtype=dtype)
+    dtype_np = getattr(np, dtype)
+    dtype = getattr(xp, dtype)
+
+    lab1 = np.zeros((N, 3), dtype=dtype_np)
     lab1[:, 0] = data['L1']
     lab1[:, 1] = data['a1']
     lab1[:, 2] = data['b1']
+    lab1 = xp.asarray(lab1, dtype=dtype)
 
-    lab2 = xp.zeros((N, 3), dtype=dtype)
+    lab2 = np.zeros((N, 3), dtype=dtype_np)
     lab2[:, 0] = data['L2']
     lab2[:, 1] = data['a2']
     lab2[:, 2] = data['b2']
+    lab2 = xp.asarray(lab2, dtype=dtype)
 
-    lab1 = xp.moveaxis(lab1, source=-1, destination=channel_axis)
-    lab2 = xp.moveaxis(lab2, source=-1, destination=channel_axis)
+    lab1 = xp.moveaxis(lab1, -1, channel_axis)
+    lab2 = xp.moveaxis(lab2, -1, channel_axis)
     dE2 = deltaE_cmc(lab1, lab2, channel_axis=channel_axis)
-    assert dE2.dtype == _supported_float_type(dtype)
+    assert dE2.dtype == _supported_float_type(dtype, xp=xp)
     oracle = xp.asarray(
         [
             1.73873611,
@@ -263,34 +284,34 @@ def test_cmc(dtype, channel_axis, test_root_dir):
         deltaE_cmc(lab1, lab2, channel_axis=channel_axis), expected, decimal=6
     )
 
-    lab2[0, 0] += xp.finfo(float).eps
+    lab2[0, 0] += xp.finfo(xp.float64).eps
     assert_almost_equal(
         deltaE_cmc(lab1, lab2, channel_axis=channel_axis), expected, decimal=6
     )
 
 
-def test_cmc_single_item():
+def test_cmc_single_item(xp):
     # Single item case:
-    lab1 = lab2 = xp.array([0.0, 1.59607713, 0.87755709])
+    lab1 = lab2 = xp.asarray([0.0, 1.59607713, 0.87755709])
     assert deltaE_cmc(lab1, lab2) == 0
 
-    lab2[0] += xp.finfo(float).eps
+    lab2[0] += xp.finfo(xp.float64).eps
     assert deltaE_cmc(lab1, lab2) == 0
 
 
-def test_single_color_cie76():
+def test_single_color_cie76(xp):
     lab1 = (0.5, 0.5, 0.5)
     lab2 = (0.4, 0.4, 0.4)
     deltaE_cie76(lab1, lab2)
 
 
-def test_single_color_ciede94():
+def test_single_color_ciede94(xp):
     lab1 = (0.5, 0.5, 0.5)
     lab2 = (0.4, 0.4, 0.4)
     deltaE_ciede94(lab1, lab2)
 
 
-def test_single_color_ciede2000():
+def test_single_color_ciede2000(xp):
     lab1 = (0.5, 0.5, 0.5)
     lab2 = (0.4, 0.4, 0.4)
     deltaE_ciede2000(lab1, lab2)

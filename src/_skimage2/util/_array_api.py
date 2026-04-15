@@ -10,6 +10,7 @@ from scipy._lib._array_api import (
     xp_swapaxes,
 
     default_xp,
+    _xp_copy_to_numpy,
 )
 
 

@@ -1903,8 +1903,17 @@ def _cart2polar_2pi(x, y, xp):
     NON-STANDARD RANGE! Maps to ``(0, 2*pi)`` rather than usual ``(-pi, +pi)``
     """
     r, t = xp.hypot(x, y), xp.atan2(y, x)
-    t += xp.where(t < 0.0, 2 * math.pi, 0)
-    return r, t
+
+    # `test_ciede2000_dE` is sensitive to the following reduction to (0, 2*pi)
+    # being done in float64 even if t.dtype == float32
+    # Below we reproduce this in Array API compatible way 
+    # t += xp.where(t < 0.0, 2 * math.pi, 0.0)
+
+    zero = xp.asarray(0.0, dtype=xp.float64)
+    delta = xp.where(t < 0.0, 2 * math.pi, zero)
+    t_f64 = xp.astype(t, xp.float64)
+    t_ = xp.astype(t_f64 + delta, t.dtype)
+    return r, t_
 
 
 @channel_as_last_axis()
@@ -1981,13 +1990,16 @@ def _prepare_lab_array(arr, xp, force_copy=True):
     shape = arr.shape
     if shape[-1] < 3:
         raise ValueError('Input image has less than 3 channels.')
-    float_dtype = _supported_float_type(arr.dtype)
+    float_dtype = _supported_float_type(arr.dtype, xp=xp)
     if float_dtype == xp.float32:
         _func = dtype.img_as_float32
     else:
         _func = dtype.img_as_float64
-    return _func(arr, force_copy=force_copy)
 
+#    breakpoint()
+
+    result_np = _func(arr, force_copy=force_copy)
+    return xp.asarray(result_np)   # TODO: make _convert array lib agnostic instead
 
 @channel_as_last_axis()
 def rgb2yuv(rgb, *, channel_axis=-1):

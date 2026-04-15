@@ -8,6 +8,8 @@ import numpy as np
 
 from ._warnings import all_warnings, warn
 
+from _skimage2.util._array_api import array_namespace
+
 
 __all__ = [
     'deprecate_func',
@@ -614,11 +616,14 @@ class channel_as_last_axis:
             if channel_axis == (-1,) or channel_axis == -1:
                 return func(*args, **kwargs)
 
+            # XXX this assumes that all args and kwargs are arrays or python scalars
+            xp = array_namespace(*args)
+
             if self.arg_positions:
                 new_args = []
                 for pos, arg in enumerate(args):
                     if pos in self.arg_positions:
-                        new_args.append(np.moveaxis(arg, channel_axis[0], -1))
+                        new_args.append(xp.moveaxis(arg, channel_axis[0], -1))
                     else:
                         new_args.append(arg)
                 new_args = tuple(new_args)
@@ -626,7 +631,7 @@ class channel_as_last_axis:
                 new_args = args
 
             for name in self.kwarg_names:
-                kwargs[name] = np.moveaxis(kwargs[name], channel_axis[0], -1)
+                kwargs[name] = xp.moveaxis(kwargs[name], channel_axis[0], -1)
 
             # now that we have moved the channels axis to the last position,
             # change the channel_axis argument to -1
@@ -635,7 +640,7 @@ class channel_as_last_axis:
             # Call the function with the fixed arguments
             out = func(*new_args, **kwargs)
             if self.multichannel_output:
-                out = np.moveaxis(out, -1, channel_axis[0])
+                out = xp.moveaxis(out, -1, channel_axis[0])
             return out
 
         return fixed_func
@@ -1087,7 +1092,7 @@ def _supported_float_type(input_dtype, allow_complex=False, xp=np):
         Floating-point dtype for the image.
     """
     if isinstance(input_dtype, tuple):
-        return xp.result_type(*(_supported_float_type(d) for d in input_dtype))
+        return xp.result_type(*(_supported_float_type(d, xp=xp) for d in input_dtype))
     # input_dtype = np.dtype(input_dtype)   # XXX this is numpy specific! strings?
     if not allow_complex and xp.isdtype(input_dtype, "complex floating"):
         raise ValueError("complex valued input is not supported")
