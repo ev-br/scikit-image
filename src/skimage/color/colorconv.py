@@ -66,6 +66,7 @@ from _skimage2._shared.utils import (
 from ..util import dtype, dtype_limits
 
 from _skimage2.util._array_api import array_namespace
+import array_api_extra as xpx   # XXX: vendor or require
 
 # TODO: when minimum numpy dependency is 1.25 use:
 # np..exceptions.AxisError instead of AxisError
@@ -592,6 +593,8 @@ def xyz_tristimulus_values(*, illuminant, observer, dtype=float, xp=np):
         R function ``grDevices::convertColor`` [3]_.
     dtype : dtype, optional
         Output data type.
+    xp : namespace, optional
+        The array namespace for the return value. Default is NumPy.
 
     Returns
     -------
@@ -635,6 +638,8 @@ def xyz_tristimulus_values(*, illuminant, observer, dtype=float, xp=np):
     """
     illuminant = illuminant.upper()
     observer = observer.upper()
+    if dtype == float:
+        dtype = xp.float64
     try:
         return xp.asarray(_illuminants[illuminant][observer], dtype=dtype)
     except KeyError:
@@ -1128,7 +1133,7 @@ def xyz2lab(xyz, illuminant="D65", observer="2", *, channel_axis=-1):
     arr = _prepare_colorarray(xyz, xp, channel_axis=-1)
 
     xyz_ref_white = xyz_tristimulus_values(
-        illuminant=illuminant, observer=observer, dtype=arr.dtype
+        illuminant=illuminant, observer=observer, dtype=arr.dtype, xp=xp
     )
 
     # scale by CIE XYZ tristimulus values of the reference white point
@@ -1227,15 +1232,15 @@ def _lab2xyz(lab, illuminant, observer):
         Number of invalid pixels in the Z channel after conversion.
     """
     xp = array_namespace(lab)
-    arr = _prepare_colorarray(lab, xp, channel_axis=-1).copy()
+    arr = xp.asarray(_prepare_colorarray(lab, xp, channel_axis=-1), copy=True)
 
     L, a, b = arr[..., 0], arr[..., 1], arr[..., 2]
     y = (L + 16.0) / 116.0
     x = (a / 500.0) + y
     z = y - (b / 200.0)
 
-    invalid = np.atleast_1d(z < 0).nonzero()
-    n_invalid = invalid[0].size
+    invalid = xp.nonzero(xpx.atleast_nd(z < 0, ndim=1), )
+    n_invalid = math.prod(invalid[0].shape)
     if n_invalid != 0:
         # Warning should be emitted by caller
         if z.ndim > 0:
@@ -1250,8 +1255,8 @@ def _lab2xyz(lab, illuminant, observer):
     out[~mask] = (out[~mask] - 16.0 / 116.0) / 7.787
 
     # rescale to the reference white (illuminant)
-    xyz_ref_white = xyz_tristimulus_values(illuminant=illuminant, observer=observer)
-    out *= xyz_ref_white
+    xyz_ref_white = xyz_tristimulus_values(illuminant=illuminant, observer=observer, xp=xp)
+    out = xp.astype(out * xyz_ref_white, out.dtype)
     return out, n_invalid
 
 
@@ -1432,7 +1437,7 @@ def xyz2luv(xyz, illuminant="D65", observer="2", *, channel_axis=-1):
 
     # compute y_r and L
     xyz_ref_white = xyz_tristimulus_values(
-        illuminant=illuminant, observer=observer, dtype=arr.dtype
+        illuminant=illuminant, observer=observer, dtype=arr.dtype, xp=xp
     )
     L = y / xyz_ref_white[1]
     mask = L > 0.008856
@@ -1514,14 +1519,14 @@ def luv2xyz(luv, illuminant="D65", observer="2", *, channel_axis=-1):
     eps = xp.finfo(arr.dtype).eps
 
     # compute y
-    y = L.copy()
+    y = xp.asarray(L, copy=True)
     mask = y > 7.999625
     y[mask] = xp.pow((y[mask] + 16.0) / 116.0, 3.0)
     y[~mask] = y[~mask] / 903.3
     xyz_ref_white = xyz_tristimulus_values(
-        illuminant=illuminant, observer=observer, dtype=arr.dtype
+        illuminant=illuminant, observer=observer, dtype=arr.dtype, xp=xp
     )
-    y *= xyz_ref_white[1]
+    y = xp.astype(y * xyz_ref_white[1], y.dtype)
 
     # reference white x,z
     uv_weights = xp.asarray([1, 15, 3], dtype=arr.dtype)
@@ -1645,7 +1650,8 @@ def rgb2hed(rgb, *, channel_axis=-1):
     >>> ihc = data.immunohistochemistry()
     >>> ihc_hed = rgb2hed(ihc)
     """
-    return separate_stains(rgb, hed_from_rgb)
+    xp = array_namespace(rgb)
+    return separate_stains(rgb, xp.asarray(hed_from_rgb))
 
 
 @channel_as_last_axis()
@@ -1760,12 +1766,12 @@ def separate_stains(rgb, conv_matrix, *, channel_axis=-1):
     """
     xp = array_namespace(rgb)
     rgb = _prepare_colorarray(rgb, xp, force_copy=True, channel_axis=-1)
-    xp.maximum(rgb, 1e-6, out=rgb)  # avoiding log artifacts
-    log_adjust = xp.log(1e-6)  # used to compensate the sum above
+    rgb = xp.maximum(rgb, xp.asarray(1e-6, dtype=rgb.dtype))  # avoiding log artifacts
+    log_adjust = math.log(1e-6)  # used to compensate the sum above
 
     stains = (xp.log(rgb) / log_adjust) @ conv_matrix
 
-    xp.maximum(stains, 0, out=stains)
+    stains = xp.maximum(stains, xp.asarray(0, dtype=stains.dtype))
 
     return stains
 
