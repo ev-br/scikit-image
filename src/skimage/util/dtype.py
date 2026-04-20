@@ -3,6 +3,8 @@ from warnings import warn
 
 import numpy as np
 
+from _skimage2.util._array_api import array_namespace
+
 
 __all__ = [
     'img_as_float32',
@@ -447,7 +449,9 @@ def img_as_float32(image, force_copy=False):
     and can be outside the ranges [0.0, 1.0] or [-1.0, 1.0].
 
     """
-    return _convert(image, np.float32, force_copy)
+    xp = array_namespace(image)
+    converted = _convert(np.asarray(image), np.float32, force_copy)
+    return xp.asarray(converted)
 
 
 def img_as_float64(image, force_copy=False):
@@ -473,7 +477,9 @@ def img_as_float64(image, force_copy=False):
     and can be outside the ranges [0.0, 1.0] or [-1.0, 1.0].
 
     """
-    return _convert(image, np.float64, force_copy)
+    xp = array_namespace(image)
+    converted = _convert(np.asarray(image), np.float64, force_copy)
+    return xp.asarray(converted)
 
 
 def img_as_float(image, force_copy=False):
@@ -502,7 +508,9 @@ def img_as_float(image, force_copy=False):
     and can be outside the ranges [0.0, 1.0] or [-1.0, 1.0].
 
     """
-    return _convert(image, np.floating, force_copy)
+    xp = array_namespace(image)
+    converted = _convert(np.asarray(image), np.floating, force_copy)
+    return xp.asarray(converted)
 
 
 def img_as_uint(image, force_copy=False):
@@ -526,7 +534,9 @@ def img_as_uint(image, force_copy=False):
     Positive values are scaled between 0 and 65535.
 
     """
-    return _convert(image, np.uint16, force_copy)
+    xp = array_namespace(image)
+    converted = _convert(np.asarray(image), np.uint16, force_copy)
+    return xp.asarray(converted)
 
 
 def img_as_int(image, force_copy=False):
@@ -551,7 +561,9 @@ def img_as_int(image, force_copy=False):
     the output image will still only have positive values.
 
     """
-    return _convert(image, np.int16, force_copy)
+    xp = array_namespace(image)
+    converted = _convert(np.asarray(image), np.int16, force_copy)
+    return xp.asarray(converted)
 
 
 def img_as_ubyte(image, force_copy=False):
@@ -575,7 +587,9 @@ def img_as_ubyte(image, force_copy=False):
     Positive values are scaled between 0 and 255.
 
     """
-    return _convert(image, np.uint8, force_copy)
+    xp = array_namespace(image)
+    converted = _convert(np.asarray(image), np.uint8, force_copy)
+    return xp.asarray(converted)
 
 
 def img_as_bool(image, force_copy=False):
@@ -599,4 +613,6 @@ def img_as_bool(image, force_copy=False):
     half is False. All negative values (if present) are False.
 
     """
-    return _convert(image, bool, force_copy)
+    xp = array_namespace(image)
+    converted = _convert(np.asarray(image), bool, force_copy)
+    return xp.asarray(converted)

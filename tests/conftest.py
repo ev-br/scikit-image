@@ -72,6 +72,16 @@ def pytest_configure(config: pytest.Config) -> None:
     config.pluginmanager.unregister(standard_reporter)
     config.pluginmanager.register(custom_reporter, 'terminalreporter')
 
+    config.addinivalue_line("markers",
+        "array_api_backends: test iterates on all array API backends")
+    config.addinivalue_line("markers",
+        ("skip_xp_backends(backends, reason=None, np_only=False, cpu_only=False, " +
+         "eager_only=False, exceptions=None): mark the desired skip configuration " +
+         "for the `skip_xp_backends` fixture"))
+    config.addinivalue_line("markers",
+        ("xfail_xp_backends(backends, reason=None, np_only=False, cpu_only=False, " +
+         "eager_only=False, exceptions=None): mark the desired xfail configuration " +
+         "for the `xfail_xp_backends` fixture"))
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
     if FREE_THREADED_BUILD and not GIL_ENABLED_AT_START and sys._is_gil_enabled():

@@ -75,20 +75,19 @@ xp = np
 class TestColorconv:
     img_rgb = data.colorwheel()
     img_grayscale = data.camera()
-    img_rgba = xp.asarray(
-        [[[0, 0.5, 1, 0], [0, 0.5, 1, 1], [0, 0.5, 1, 0.5]]], dtype=xp.float64
+    img_rgba = np.array([[[0, 0.5, 1, 0], [0, 0.5, 1, 1], [0, 0.5, 1, 0.5]]]).astype(
+        float
     )
     img_stains = img_as_float(img_rgb) * 0.3
 
-    colbars = xp.asarray(
-        [[1, 1, 0, 0, 1, 1, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0], [1, 0, 1, 0, 1, 0, 1, 0]],
-        dtype=xp.float64
-    )
-    colbars_array = xp_swapaxes(xp.reshape(colbars, (3, 4, 2)), 0, 2)
+    colbars = np.array(
+        [[1, 1, 0, 0, 1, 1, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0], [1, 0, 1, 0, 1, 0, 1, 0]]
+    ).astype(float)
+    colbars_array = np.swapaxes(colbars.reshape(3, 4, 2), 0, 2)
     colbars_point75 = colbars * 0.75
-    colbars_point75_array = xp_swapaxes(xp.reshape(colbars_point75, (3, 4, 2)), 0, 2)
+    colbars_point75_array = np.swapaxes(colbars_point75.reshape(3, 4, 2), 0, 2)
 
-    xyz_array = xp.asarray(
+    xyz_array = np.array(
         [
             [[0.4124, 0.21260, 0.01930]],  # red
             [[0, 0, 0]],  # black
@@ -97,7 +96,7 @@ class TestColorconv:
             [[0.07719, 0.15438, 0.02573]],  # green
         ]
     )
-    lab_array = xp.asarray(
+    lab_array = np.array(
         [
             [[53.233, 80.109, 67.220]],  # red
             [[0.0, 0.0, 0.0]],  # black
@@ -107,7 +106,7 @@ class TestColorconv:
         ]
     )
 
-    luv_array = xp.asarray(
+    luv_array = np.array(
         [
             [[53.233, 175.053, 37.751]],  # red
             [[0.0, 0.0, 0.0]],  # black
@@ -119,12 +118,12 @@ class TestColorconv:
 
     # RGBA to RGB
     @pytest.mark.parametrize("channel_axis", [0, 1, 2, -1, -2, -3])
-    def test_rgba2rgb_conversion(self, channel_axis):
-        rgba = self.img_rgba
+    def test_rgba2rgb_conversion(self, channel_axis, xp):
+        rgba = xp.asarray(self.img_rgba)
 
-        rgba = xp.moveaxis(rgba, source=-1, destination=channel_axis)
+        rgba = xp.moveaxis(rgba, -1, channel_axis)
         rgb = rgba2rgb(rgba, channel_axis=channel_axis)
-        rgb = xp.moveaxis(rgb, source=channel_axis, destination=-1)
+        rgb = xp.moveaxis(rgb, channel_axis, -1)
 
         expected = xp.asarray(
             [[[1, 1, 1], [0, 0.5, 1], [0.5, 0.75, 1]]], dtype=xp.float64
@@ -150,21 +149,24 @@ class TestColorconv:
         with pytest.raises(ValueError):
             rgba2rgb(self.img_rgb)
 
-    def test_rgba2rgb_dtype(self):
-        rgba = xp.astype(self.img_rgba, xp.float64)
+    def test_rgba2rgb_dtype(self, xp):
+        rgba = xp.astype(xp.asarray(self.img_rgba), xp.float64)
         rgba32 = img_as_float32(rgba)
 
         assert rgba2rgb(rgba).dtype == rgba.dtype
         assert rgba2rgb(rgba32).dtype == rgba32.dtype
 
     # RGB to HSV
+    @pytest.mark.xfail_xp_backends(
+        "array_api_strict", reason="fancy indexing: boolean masks and int indices"
+    )
     @pytest.mark.parametrize("channel_axis", [0, 1, -1, -2])
-    def test_rgb2hsv_conversion(self, channel_axis):
-        rgb = img_as_float(self.img_rgb)[::16, ::16]
+    def test_rgb2hsv_conversion(self, channel_axis, xp):
+        rgb = img_as_float(xp.asarray(self.img_rgb))[::16, ::16, :]
 
-        _rgb = xp.moveaxis(rgb, source=-1, destination=channel_axis)
+        _rgb = xp.moveaxis(rgb, -1, channel_axis)
         hsv = rgb2hsv(_rgb, channel_axis=channel_axis)
-        hsv = xp.moveaxis(hsv, source=channel_axis, destination=-1)
+        hsv = xp.moveaxis(hsv, channel_axis, -1)
         hsv = xp.reshape(hsv, (-1, 3))
 
         # ground truth from colorsys
@@ -177,25 +179,26 @@ class TestColorconv:
         with pytest.raises(ValueError):
             rgb2hsv(self.img_grayscale)
 
-    def test_rgb2hsv_dtype(self):
-        rgb = img_as_float(self.img_rgb)
-        rgb32 = img_as_float32(self.img_rgb)
+    def test_rgb2hsv_dtype(self, xp):
+        rgb = img_as_float(xp.asarray(self.img_rgb))
+        rgb32 = img_as_float32(xp.asarray(self.img_rgb))
 
         assert rgb2hsv(rgb).dtype == rgb.dtype
         assert rgb2hsv(rgb32).dtype == rgb32.dtype
 
     # HSV to RGB
     @pytest.mark.parametrize("channel_axis", [0, 1, -1, -2])
-    def test_hsv2rgb_conversion(self, channel_axis):
-        rgb = xp.astype(self.img_rgb, xp.float32)[::16, ::16]
+    def test_hsv2rgb_conversion(self, channel_axis, xp):
+        rgb = xp.astype(xp.asarray(self.img_rgb), xp.float32)[::16, ::16, :]
         # create HSV image with colorsys
+        pt = xp.reshape(rgb, (-1, 3))
         hsv = xp.reshape(xp.asarray(
-            [colorsys.rgb_to_hsv(pt[0], pt[1], pt[2]) for pt in xp.reshape(rgb, (-1, 3))]
+            [colorsys.rgb_to_hsv(pt[j, 0], pt[j, 1], pt[j, 2]) for j in range(pt.shape[0])]
         ), rgb.shape)
 
-        hsv = xp.moveaxis(hsv, source=-1, destination=channel_axis)
+        hsv = xp.moveaxis(hsv, -1, channel_axis)
         _rgb = hsv2rgb(hsv, channel_axis=channel_axis)
-        _rgb = xp.moveaxis(_rgb, source=channel_axis, destination=-1)
+        _rgb = xp.moveaxis(_rgb, channel_axis, -1)
 
         # convert back to RGB and compare with original.
         # relative precision for RGB -> HSV roundtrip is about 1e-6
@@ -205,11 +208,12 @@ class TestColorconv:
         with pytest.raises(ValueError):
             hsv2rgb(self.img_grayscale)
 
-    def test_hsv2rgb_dtype(self):
-        rgb = xp.astype(self.img_rgb, xp.float32)[::16, ::16]
+    def test_hsv2rgb_dtype(self, xp):
+        rgb = xp.astype(xp.asarray(self.img_rgb), xp.float32)[::16, ::16, :]
         # create HSV image with colorsys
+        pt = xp.reshape(rgb, (-1, 3))
         hsv = xp.reshape(xp.asarray(
-            [colorsys.rgb_to_hsv(pt[0], pt[1], pt[2]) for pt in xp.reshape(rgb, (-1, 3))],
+            [colorsys.rgb_to_hsv(pt[j, 0], pt[j, 1], pt[j, 2]) for j in range(pt.shape[0])],
             dtype=xp.float64,
         ), rgb.shape)
         hsv32 = xp.astype(hsv, xp.float32)
@@ -219,7 +223,7 @@ class TestColorconv:
 
     # RGB to XYZ
     @pytest.mark.parametrize("channel_axis", [0, 1, -1, -2])
-    def test_rgb2xyz_conversion(self, channel_axis):
+    def test_rgb2xyz_conversion(self, channel_axis, xp):
         gt = xp.asarray(
             [
                 [
@@ -237,9 +241,9 @@ class TestColorconv:
             ]
         )
 
-        img = xp.moveaxis(self.colbars_array, source=-1, destination=channel_axis)
+        img = xp.moveaxis(xp.asarray(self.colbars_array), -1, channel_axis)
         out = rgb2xyz(img, channel_axis=channel_axis)
-        out = xp.moveaxis(out, source=channel_axis, destination=-1)
+        out = xp.moveaxis(out, channel_axis, -1)
 
         assert_almost_equal(out, gt)
 
@@ -249,12 +253,15 @@ class TestColorconv:
         with pytest.raises(ValueError):
             rgb2xyz(self.img_grayscale)
 
-    def test_rgb2xyz_dtype(self):
-        img = self.colbars_array
+    def test_rgb2xyz_dtype(self, xp):
+        img = xp.asarray(self.colbars_array)
         img32 = xp.astype(img, xp.float32)
 
         assert rgb2xyz(img).dtype == img.dtype
         assert rgb2xyz(img32).dtype == img32.dtype
+
+# >>>>>>>>>>>>> UPTOHERE <<<<<<<<<<<<<<<<<
+
 
     # XYZ to RGB
     def test_xyz2rgb_conversion(self):

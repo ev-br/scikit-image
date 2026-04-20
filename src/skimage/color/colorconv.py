@@ -172,7 +172,7 @@ def _prepare_colorarray(arr, xp, force_copy=False, *, channel_axis=-1):
         )
         raise ValueError(msg)
 
-    float_dtype = _supported_float_type(arr.dtype, xp)
+    float_dtype = _supported_float_type(arr.dtype, xp=xp)
     if float_dtype == xp.float32:
         _func = dtype.img_as_float32
     else:
@@ -238,14 +238,14 @@ def rgba2rgb(rgba, background=(1, 1, 1), *, channel_axis=-1):
         )
         raise ValueError(msg)
 
-    float_dtype = _supported_float_type(arr.dtype)
+    float_dtype = _supported_float_type(arr.dtype, xp=xp)
     if float_dtype == xp.float32:
         arr = dtype.img_as_float32(arr)
     else:
         arr = dtype.img_as_float64(arr)
 
-    background = xp.astype(xp.reshape(background, (-1,)), arr.dtype)
-    if len(background) != 3:
+    background = xp.astype(xp.reshape(xp.asarray(background), (-1,)), arr.dtype)
+    if background.shape[0] != 3:
         raise ValueError(
             'background must be an array-like containing 3 RGB '
             f'values. Got {len(background)} items'
@@ -303,6 +303,9 @@ def rgb2hsv(rgb, *, channel_axis=-1):
     >>> img = data.astronaut()
     >>> img_hsv = color.rgb2hsv(img)
     """
+    # XXX: this function runs into limitations of the Array API spec:
+    #   1. fancy indexing setitem, and 2) mixing array and scalar indices
+    # are "unspecified" in the spec, hence it chokes if xp==array-api-strict
     xp = array_namespace(rgb)
     rgb = xp.asarray(rgb)
 
@@ -314,10 +317,10 @@ def rgb2hsv(rgb, *, channel_axis=-1):
     out = xp.empty_like(arr)
 
     # -- V channel
-    out_v = arr.max(-1)
+    out_v = xp.max(arr, axis=-1)
 
     # -- S channel
-    delta = np.ptp(arr, axis=-1)
+    delta = xp.max(arr, axis=-1) - xp.min(arr, axis=-1)
     # Ignore warning for zero divided by zero
     old_settings = np.seterr(invalid='ignore')
     out_s = delta / out_v
@@ -397,31 +400,35 @@ def hsv2rgb(hsv, *, channel_axis=-1):
     >>> img_rgb = hsv2rgb(img_hsv)
     """
     xp = array_namespace(hsv)
-    arr = _prepare_colorarray(hsv, xp, channel_axis=-1)
 
-    hi = xp.floor(arr[..., 0] * 6)
+    # convert to numpy and do the work with numpy arrays because of np.choose below
+    hsv = np.asarray(hsv)
+
+    arr = _prepare_colorarray(hsv, xp=np, channel_axis=-1)
+
+    hi = np.floor(arr[..., 0] * 6)
     f = arr[..., 0] * 6 - hi
     p = arr[..., 2] * (1 - arr[..., 1])
     q = arr[..., 2] * (1 - f * arr[..., 1])
     t = arr[..., 2] * (1 - (1 - f) * arr[..., 1])
     v = arr[..., 2]
 
-    hi = xp.stack([hi, hi, hi], axis=-1).astype(xp.uint8) % 6
+    hi = np.stack([hi, hi, hi], axis=-1).astype(np.uint8) % 6
     out = np.choose(
         hi,
-        xp.stack(
+        np.stack(
             [
-                xp.stack((v, t, p), axis=-1),
-                xp.stack((q, v, p), axis=-1),
-                xp.stack((p, v, t), axis=-1),
-                xp.stack((p, q, v), axis=-1),
-                xp.stack((t, p, v), axis=-1),
-                xp.stack((v, p, q), axis=-1),
+                np.stack((v, t, p), axis=-1),
+                np.stack((q, v, p), axis=-1),
+                np.stack((p, v, t), axis=-1),
+                np.stack((p, q, v), axis=-1),
+                np.stack((t, p, v), axis=-1),
+                np.stack((v, p, q), axis=-1),
             ]
         ),
     )
 
-    return out
+    return xp.asarray(out)
 
 
 # ---------------------------------------------------------------
@@ -864,7 +871,7 @@ def rgb2xyz(rgb, *, channel_axis=-1):
     mask = arr > 0.04045
     arr[mask] = xp.pow((arr[mask] + 0.055) / 1.055, 2.4)
     arr[~mask] /= 12.92
-    return arr @ xp.astype(xyz_from_rgb.T, arr.dtype)
+    return arr @ xp.astype(xp.asarray(xyz_from_rgb).T, arr.dtype)
 
 
 @channel_as_last_axis()

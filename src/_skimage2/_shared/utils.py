@@ -910,11 +910,12 @@ def reshape_nd(arr, ndim, dim):
     >>> reshape_nd(arr, 4, -1).shape
     (1, 1, 1, 7)
     """
+    xp = array_namespace(arr)
     if arr.ndim != 1:
         raise ValueError("arr must be a 1D array")
     new_shape = [1] * ndim
     new_shape[dim] = -1
-    return np.reshape(arr, new_shape)
+    return xp.reshape(arr, tuple(new_shape))
 
 
 def check_nD(array, ndim, arg_name='image'):
@@ -1096,7 +1097,6 @@ def _supported_float_type(input_dtype, allow_complex=False, xp=np):
     # input_dtype = np.dtype(input_dtype)   # XXX this is numpy specific! strings?
     if not allow_complex and xp.isdtype(input_dtype, "complex floating"):
         raise ValueError("complex valued input is not supported")
-###    return new_float_type.get(input_dtype.char, np.float64)
 
     # long and short dtypes: may or may not exist, depending on the array library
     if getattr(xp, "float16", None) and input_dtype == xp.float16:
