@@ -260,15 +260,13 @@ class TestColorconv:
         assert rgb2xyz(img).dtype == img.dtype
         assert rgb2xyz(img32).dtype == img32.dtype
 
-# >>>>>>>>>>>>> UPTOHERE <<<<<<<<<<<<<<<<<
-
-
     # XYZ to RGB
-    def test_xyz2rgb_conversion(self):
-        assert_almost_equal(xyz2rgb(rgb2xyz(self.colbars_array)), self.colbars_array)
+    def test_xyz2rgb_conversion(self, xp):
+        arr = xp.asarray(self.colbars_array)
+        assert_almost_equal(xyz2rgb(rgb2xyz(arr)), arr)
 
-    def test_xyz2rgb_dtype(self):
-        img = rgb2xyz(self.colbars_array)
+    def test_xyz2rgb_dtype(self, xp):
+        img = rgb2xyz(xp.asarray(self.colbars_array))
         img32 = xp.astype(img, xp.float32)
 
         assert xyz2rgb(img).dtype == img.dtype
@@ -276,10 +274,10 @@ class TestColorconv:
 
     # RGB<->XYZ roundtrip on another image
     @pytest.mark.parametrize("channel_axis", [0, 1, -1, -2])
-    def test_xyz_rgb_roundtrip(self, channel_axis):
-        img_rgb = img_as_float(self.img_rgb)
+    def test_xyz_rgb_roundtrip(self, channel_axis, xp):
+        img_rgb = img_as_float(xp.asarray(self.img_rgb))
 
-        img_rgb = xp.moveaxis(img_rgb, source=-1, destination=channel_axis)
+        img_rgb = xp.moveaxis(img_rgb, -1, channel_axis)
         round_trip = xyz2rgb(
             rgb2xyz(img_rgb, channel_axis=channel_axis), channel_axis=channel_axis
         )
@@ -287,10 +285,14 @@ class TestColorconv:
         assert_array_almost_equal(round_trip, img_rgb)
 
     # HED<->RGB roundtrip with ubyte image
-    def test_hed_rgb_roundtrip(self):
-        img_in = img_as_ubyte(self.img_stains)
+    def test_hed_rgb_roundtrip(self, xp):
+        img_in = img_as_ubyte(xp.asarray(self.img_stains))
         img_out = rgb2hed(hed2rgb(img_in))
         xp_assert_equal(img_as_ubyte(img_out), img_in)
+
+
+# >>>>>>>>>>>>> UPTOHERE <<<<<<<<<<<<<<<<<
+
 
     # HED<->RGB roundtrip with float image
     @pytest.mark.parametrize("channel_axis", [0, 1, -1, -2])

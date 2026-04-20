@@ -819,7 +819,7 @@ def xyz2rgb(xyz, *, channel_axis=-1):
     mask = arr > 0.0031308
     arr[mask] = 1.055 * xp.pow(arr[mask], 1 / 2.4) - 0.055
     arr[~mask] *= 12.92
-    xp.clip(arr, 0, 1, out=arr)
+    arr = xp.clip(arr, 0, 1)
     return arr
 
 
@@ -1689,7 +1689,8 @@ def hed2rgb(hed, *, channel_axis=-1):
     >>> ihc_hed = rgb2hed(ihc)
     >>> ihc_rgb = hed2rgb(ihc_hed)
     """
-    return combine_stains(hed, rgb_from_hed)
+    xp = array_namespace(hed)
+    return combine_stains(hed, xp.asarray(rgb_from_hed))
 
 
 @channel_as_last_axis()
@@ -1831,11 +1832,11 @@ def combine_stains(stains, conv_matrix, *, channel_axis=-1):
     >>> ihc_hdx = separate_stains(ihc, hdx_from_rgb)
     >>> ihc_rgb = combine_stains(ihc_hdx, rgb_from_hdx)
     """
-    xp = array_namespace(stains)
+    xp = array_namespace(stains, conv_matrix)
     stains = _prepare_colorarray(stains, xp, channel_axis=-1)
 
     # log_adjust here is used to compensate the sum within separate_stains().
-    log_adjust = -xp.log(1e-6)
+    log_adjust = -math.log(1e-6)
     log_rgb = -(stains * log_adjust) @ conv_matrix
     rgb = xp.exp(log_rgb)
 
